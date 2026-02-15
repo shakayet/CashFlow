@@ -74,8 +74,26 @@ const updateProfileToDB = async (
   return updateDoc;
 };
 
+const deleteAccountFromDB = async (user: JwtPayload): Promise<IUser | null> => {
+  const { id } = user;
+  const isExistUser = await User.isExistUserById(id);
+  if (!isExistUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+  if (isExistUser.image) {
+    try {
+      unlinkFile(isExistUser.image);
+    } catch {
+      // ignore unlink errors
+    }
+  }
+  const deleted = await User.findByIdAndDelete(id);
+  return deleted;
+};
+
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
   updateProfileToDB,
+  deleteAccountFromDB,
 };

@@ -52,4 +52,21 @@ const updateProfile = catchAsync(
   },
 );
 
-export const UserController = { createUser, getUserProfile, updateProfile };
+const deleteAccount = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as any;
+  const result = await UserService.deleteAccountFromDB(user);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Account deleted successfully',
+    data: result,
+  });
+});
+
+export const UserController = {
+  createUser,
+  getUserProfile,
+  updateProfile,
+  deleteAccount,
+};
