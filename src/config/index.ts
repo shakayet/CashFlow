@@ -23,6 +23,16 @@ export default {
     host: process.env.EMAIL_HOST,
     pass: process.env.EMAIL_PASS,
   },
+  brand: {
+    logo_url: process.env.BRAND_LOGO_URL,
+  },
+  storage: {
+    s3: {
+      bucket: process.env.S3_BUCKET_NAME,
+      region: process.env.AWS_REGION,
+    },
+    cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN,
+  },
   super_admin: {
     email: process.env.SUPER_ADMIN_EMAIL,
     password: process.env.SUPER_ADMIN_PASSWORD,
