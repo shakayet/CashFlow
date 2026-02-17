@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable no-empty */
 import { JwtPayload } from 'jsonwebtoken';
 import { IExpense } from './expense.interface';
 import { Expense } from './expense.model';
