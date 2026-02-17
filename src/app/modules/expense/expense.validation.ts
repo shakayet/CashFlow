@@ -11,6 +11,19 @@ const createExpenseZodSchema = z.object({
   description: z.string().optional(),
 });
 
+const updateExpenseZodSchema = z.object({
+  amount: z.number().positive().optional(),
+  category: z.string().min(1).optional(),
+  date: z
+    .string()
+    .refine(val => !Number.isNaN(Date.parse(val)), {
+      message: 'Date must be a valid ISO string',
+    })
+    .optional(),
+  description: z.string().optional(),
+});
+
 export const ExpenseValidation = {
   createExpenseZodSchema,
+  updateExpenseZodSchema,
 };
