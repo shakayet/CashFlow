@@ -1,4 +1,8 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import fs from 'fs';
 import path from 'path';
 import mime from 'mime-types';
@@ -32,7 +36,6 @@ const uploadFileToS3 = async (localFilePath: string, keyPrefix = 'income') => {
     Key: key,
     Body: fileBuffer,
     ContentType: contentType,
-    ACL: 'public-read',
   });
   await s3.send(command);
   return { key, url: getPublicUrl(key) };
@@ -40,4 +43,12 @@ const uploadFileToS3 = async (localFilePath: string, keyPrefix = 'income') => {
 
 export const s3Uploader = {
   uploadFileToS3,
+  async deleteByKey(key: string) {
+    const bucket = config.storage.s3.bucket as string;
+    const command = new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    });
+    await s3.send(command);
+  },
 };

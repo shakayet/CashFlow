@@ -5,13 +5,43 @@ import { USER_ROLES } from '../../../enums/user';
 import { IncomeController } from './income.controller';
 const router = express.Router();
 
+router.get(
+  '/history',
+  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  (req: Request, res: Response, next: NextFunction) => {
+    return IncomeController.getIncomeHistory(req, res, next);
+  },
+);
+
 router
   .route('/')
+  .get(
+    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    (req: Request, res: Response, next: NextFunction) => {
+      return IncomeController.getIncomes(req, res, next);
+    },
+  )
   .post(
     auth(USER_ROLES.ADMIN, USER_ROLES.USER),
     fileUploadHandler(),
     (req: Request, res: Response, next: NextFunction) => {
       return IncomeController.createIncome(req, res, next);
+    },
+  );
+
+router
+  .route('/:id')
+  .patch(
+    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    fileUploadHandler(),
+    (req: Request, res: Response, next: NextFunction) => {
+      return IncomeController.updateIncome(req, res, next);
+    },
+  )
+  .delete(
+    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    (req: Request, res: Response, next: NextFunction) => {
+      return IncomeController.deleteIncome(req, res, next);
     },
   );
 

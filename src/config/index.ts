@@ -28,7 +28,7 @@ export default {
   },
   storage: {
     s3: {
-      bucket: process.env.S3_BUCKET_NAME,
+      bucket: process.env.AWS_BUCKET,
       region: process.env.AWS_REGION,
     },
     cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN,

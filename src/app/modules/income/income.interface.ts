@@ -11,3 +11,4 @@ export type IIncome = {
 };
 
 export type IncomeModel = Model<IIncome>;
+
