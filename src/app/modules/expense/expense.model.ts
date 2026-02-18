@@ -15,7 +15,7 @@ const expenseSchema = new Schema<IExpense, ExpenseModel>(
     },
     category: {
       type: String,
-      required: true,
+      required: false, // Made optional
       trim: true,
     },
     date: {

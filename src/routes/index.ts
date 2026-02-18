@@ -5,6 +5,7 @@ import { OAuthRoutes } from '../app/modules/passport/oauth.route';
 import { IncomeRoutes } from '../app/modules/income/income.route';
 import { ExpenseRoutes } from '../app/modules/expense/expense.route';
 import { AuditRiskRoutes } from '../app/modules/auditRisk/auditRisk.route';
+import { ScanRoutes } from '../app/modules/scan/scan.route';
 const router = express.Router();
 
 const apiRoutes = [
@@ -31,6 +32,10 @@ const apiRoutes = [
   {
     path: '/audit-risk',
     route: AuditRiskRoutes,
+  },
+  {
+    path: '/scan',
+    route: ScanRoutes,
   },
 ];
 
