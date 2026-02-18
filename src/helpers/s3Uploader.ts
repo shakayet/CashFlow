@@ -41,8 +41,30 @@ const uploadFileToS3 = async (localFilePath: string, keyPrefix = 'income') => {
   return { key, url: getPublicUrl(key) };
 };
 
+const uploadBufferToS3 = async (
+  buffer: Buffer,
+  originalFileName: string,
+  mimetype: string,
+  keyPrefix = 'chat-attachments',
+) => {
+  const ext = path.extname(originalFileName);
+  const base = path.basename(originalFileName, ext);
+  const key = `${keyPrefix}/${Date.now()}-${base}${ext}`;
+
+  const bucket = config.storage.s3.bucket as string;
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: buffer,
+    ContentType: mimetype,
+  });
+  await s3.send(command);
+  return { key, url: getPublicUrl(key) };
+};
+
 export const s3Uploader = {
   uploadFileToS3,
+  uploadBufferToS3,
   async deleteByKey(key: string) {
     const bucket = config.storage.s3.bucket as string;
     const command = new DeleteObjectCommand({
