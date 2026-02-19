@@ -1,10 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable no-undef */
 import colors from 'colors';
 import { Server, Socket } from 'socket.io';
 import { logger } from '../shared/logger';
 import jwt from 'jsonwebtoken';
 import config from '../config';
 import { ChatRoom } from '../app/modules/chat/chatRoom.model';
-import { ChatMessage } from '../app/modules/chat/chatMessage.model';
+// import { ChatMessage } from '../app/modules/chat/chatMessage.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { ChatService } from '../app/modules/chat/chat.service';
 
@@ -17,7 +20,7 @@ const socket = (io: Server) => {
     try {
       const decoded = jwt.verify(
         token,
-        config.jwt_secret as string,
+        config.jwt.jwt_secret as string,
       ) as JwtPayload;
       socket.data.user = decoded;
       next();
