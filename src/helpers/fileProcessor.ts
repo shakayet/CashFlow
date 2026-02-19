@@ -1,11 +1,20 @@
+/* eslint-disable no-undef */
 import sharp from 'sharp';
 import { PDFDocument } from 'pdf-lib';
 
 export const compressImage = async (
   buffer: Buffer,
   quality: number = 80,
+  width?: number,
+  height?: number,
 ): Promise<Buffer> => {
-  return await sharp(buffer).jpeg({ quality: quality }).toBuffer();
+  let image = sharp(buffer);
+
+  if (width || height) {
+    image = image.resize(width, height);
+  }
+
+  return await image.jpeg({ quality: quality }).toBuffer();
 };
 
 export const compressPdf = async (buffer: Buffer): Promise<Buffer> => {

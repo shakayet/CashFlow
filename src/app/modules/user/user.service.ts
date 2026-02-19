@@ -8,6 +8,8 @@ import unlinkFile from '../../../shared/unlinkFile';
 import generateOTP from '../../../util/generateOTP';
 import { IUser } from './user.interface';
 import { User } from './user.model';
+// import { s3Uploader } from '../../../helpers/s3Uploader';
+// import { compressImage } from '../../../helpers/fileProcessor';
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   //set role
