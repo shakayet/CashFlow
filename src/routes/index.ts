@@ -7,6 +7,8 @@ import { ExpenseRoutes } from '../app/modules/expense/expense.route';
 import { AuditRiskRoutes } from '../app/modules/auditRisk/auditRisk.route';
 import { ScanRoutes } from '../app/modules/scan/scan.route';
 import { ChatRoutes } from '../app/modules/chat/chat.route';
+import { TermsAndConditionsRoutes } from '../app/modules/termsAndConditions/termsAndConditions.route';
+
 const router = express.Router();
 
 const apiRoutes = [
@@ -41,6 +43,10 @@ const apiRoutes = [
   {
     path: '/chat',
     route: ChatRoutes,
+  },
+  {
+    path: '/terms-and-conditions',
+    route: TermsAndConditionsRoutes,
   },
 ];
 
