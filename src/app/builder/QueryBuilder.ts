@@ -20,7 +20,7 @@ class QueryBuilder<T> {
                 $regex: this.query.searchTerm,
                 $options: 'i',
               },
-            } as FilterQuery<T>)
+            }) as FilterQuery<T>,
         ),
       });
     }
@@ -71,7 +71,7 @@ class QueryBuilder<T> {
       populateFields.map(field => ({
         path: field,
         select: selectFields[field],
-      }))
+      })),
     );
     return this;
   }
@@ -79,7 +79,7 @@ class QueryBuilder<T> {
   //pagination information
   async getPaginationInfo() {
     const total = await this.modelQuery.model.countDocuments(
-      this.modelQuery.getFilter()
+      this.modelQuery.getFilter(),
     );
     const limit = Number(this?.query?.limit) || 10;
     const page = Number(this?.query?.page) || 1;

@@ -51,4 +51,7 @@ const ChatMessageSchema = new Schema<IChatMessage>(
   },
 );
 
-export const ChatMessage = model<IChatMessage>('ChatMessage', ChatMessageSchema);
+export const ChatMessage = model<IChatMessage>(
+  'ChatMessage',
+  ChatMessageSchema,
+);

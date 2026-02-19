@@ -28,7 +28,7 @@ async function main() {
 
     server = app.listen(port, config.ip_address as string, () => {
       logger.info(
-        colors.yellow(`♻️  Application listening on port:${config.port}`)
+        colors.yellow(`♻️  Application listening on port:${config.port}`),
       );
     });
 
