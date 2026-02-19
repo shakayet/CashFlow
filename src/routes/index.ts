@@ -8,6 +8,7 @@ import { AuditRiskRoutes } from '../app/modules/auditRisk/auditRisk.route';
 import { ScanRoutes } from '../app/modules/scan/scan.route';
 import { ChatRoutes } from '../app/modules/chat/chat.route';
 import { TermsAndConditionsRoutes } from '../app/modules/termsAndConditions/termsAndConditions.route';
+import { PrivacyPolicyRoutes } from '../app/modules/privacyPolicy/privacyPolicy.route';
 
 const router = express.Router();
 
@@ -47,6 +48,10 @@ const apiRoutes = [
   {
     path: '/terms-and-conditions',
     route: TermsAndConditionsRoutes,
+  },
+  {
+    path: '/privacy-policy',
+    route: PrivacyPolicyRoutes,
   },
 ];
 
