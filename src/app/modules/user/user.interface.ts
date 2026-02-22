@@ -12,6 +12,7 @@ export type IUser = {
   image?: string;
   avatar?: string;
   status: 'active' | 'delete';
+  plan?: string;
   verified: boolean;
   provider?: 'local' | 'google' | 'facebook' | 'github';
   providerId?: string;

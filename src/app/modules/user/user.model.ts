@@ -42,6 +42,10 @@ const userSchema = new Schema<IUser, UserModal>(
       enum: ['active', 'delete'],
       default: 'active',
     },
+    plan: {
+      type: String,
+      default: null,
+    },
     verified: {
       type: Boolean,
       default: false,
