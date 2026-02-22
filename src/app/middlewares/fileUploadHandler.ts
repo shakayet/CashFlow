@@ -5,7 +5,6 @@ import multer, { FileFilterCallback } from 'multer';
 import ApiError from '../../errors/ApiError';
 
 const fileUploadHandler = () => {
-  //file filter
   const filterFilter = (req: Request, file: any, cb: FileFilterCallback) => {
     if (file.fieldname === 'image') {
       if (
@@ -33,11 +32,21 @@ const fileUploadHandler = () => {
           ),
         );
       }
-    } else if (file.fieldname === 'doc') {
-      if (file.mimetype === 'application/pdf') {
+    } else if (file.fieldname === 'doc' || file.fieldname === 'document') {
+      if (
+        file.mimetype === 'application/pdf' ||
+        file.mimetype === 'application/msword' ||
+        file.mimetype ===
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ) {
         cb(null, true);
       } else {
-        cb(new ApiError(StatusCodes.BAD_REQUEST, 'Only pdf supported'));
+        cb(
+          new ApiError(
+            StatusCodes.BAD_REQUEST,
+            'Only .pdf, .doc, .docx supported',
+          ),
+        );
       }
     } else {
       cb(new ApiError(StatusCodes.BAD_REQUEST, 'This file is not supported'));
@@ -45,13 +54,10 @@ const fileUploadHandler = () => {
   };
 
   const upload = multer({
-    storage: multer.memoryStorage(), // Use memoryStorage to get file buffer
+    storage: multer.memoryStorage(),
     fileFilter: filterFilter,
-  }).fields([
-    { name: 'image', maxCount: 3 },
-    { name: 'media', maxCount: 3 },
-    { name: 'doc', maxCount: 3 },
-  ]);
+    limits: { fileSize: 5 * 1024 * 1024 },
+  });
   return upload;
 };
 

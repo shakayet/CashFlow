@@ -12,7 +12,7 @@ router
   .get(auth(USER_ROLES.ADMIN, USER_ROLES.USER), UserController.getProfile)
   .patch(
     auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
-    fileUploadHandler(),
+    fileUploadHandler().fields([{ name: 'image', maxCount: 1 }]),
     (req: Request, res: Response, next: NextFunction) => {
       if (req.body.data) {
         req.body = UserValidation.updateUserZodSchema.parse(

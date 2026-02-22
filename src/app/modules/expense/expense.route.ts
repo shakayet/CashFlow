@@ -23,7 +23,10 @@ router
   )
   .post(
     auth(USER_ROLES.ADMIN, USER_ROLES.USER),
-    fileUploadHandler(),
+    fileUploadHandler().fields([
+      { name: 'doc', maxCount: 1 },
+      { name: 'image', maxCount: 1 },
+    ]),
     (req: Request, res: Response, next: NextFunction) => {
       return ExpenseController.createExpense(req, res, next);
     },
@@ -33,7 +36,10 @@ router
   .route('/:id')
   .patch(
     auth(USER_ROLES.ADMIN, USER_ROLES.USER),
-    fileUploadHandler(),
+    fileUploadHandler().fields([
+      { name: 'doc', maxCount: 1 },
+      { name: 'image', maxCount: 1 },
+    ]),
     (req: Request, res: Response, next: NextFunction) => {
       return ExpenseController.updateExpense(req, res, next);
     },
