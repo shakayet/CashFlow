@@ -140,9 +140,15 @@ const deleteAccountFromDB = async (user: JwtPayload): Promise<IUser | null> => {
   return deleted;
 };
 
+const getAllUsers = async (): Promise<IUser[]> => {
+  const result = await User.find({});
+  return result;
+};
+
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
   updateProfileToDB,
   deleteAccountFromDB,
+  getAllUsers,
 };

@@ -18,7 +18,7 @@ const createUser = catchAsync(
   },
 );
 
-const getUserProfile = catchAsync(async (req: Request, res: Response) => {
+const getProfile = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
   const result = await UserService.getUserProfileFromDB(user);
 
@@ -55,18 +55,28 @@ const updateProfile = catchAsync(
 const deleteAccount = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
   const result = await UserService.deleteAccountFromDB(user);
-
   sendResponse(res, {
-    success: true,
     statusCode: StatusCodes.OK,
+    success: true,
     message: 'Account deleted successfully',
+    data: result,
+  });
+});
+
+const getAllUsers = catchAsync(async (req: Request, res: Response) => {
+  const result = await UserService.getAllUsers();
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Users retrieved successfully',
     data: result,
   });
 });
 
 export const UserController = {
   createUser,
-  getUserProfile,
+  getProfile,
   updateProfile,
   deleteAccount,
+  getAllUsers,
 };
