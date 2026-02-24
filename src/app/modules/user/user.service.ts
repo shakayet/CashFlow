@@ -145,10 +145,22 @@ const getAllUsers = async (): Promise<IUser[]> => {
   return result;
 };
 
+const updateUserStatusToDB = async (
+  id: string,
+  status: 'active' | 'block',
+): Promise<IUser | null> => {
+  const user = await User.findByIdAndUpdate(id, { status }, { new: true });
+  if (!user) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+  return user;
+};
+
 export const UserService = {
   createUserToDB,
   getUserProfileFromDB,
   updateProfileToDB,
   deleteAccountFromDB,
   getAllUsers,
+  updateUserStatusToDB,
 };

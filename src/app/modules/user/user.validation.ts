@@ -19,7 +19,14 @@ const updateUserZodSchema = z.object({
   image: z.string().optional(),
 });
 
+const updateUserStatusZodSchema = z.object({
+  body: z.object({
+    status: z.enum(['active', 'block']),
+  }),
+});
+
 export const UserValidation = {
   createUserZodSchema,
   updateUserZodSchema,
+  updateUserStatusZodSchema,
 };

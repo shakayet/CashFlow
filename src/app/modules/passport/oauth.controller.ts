@@ -6,6 +6,8 @@ import { jwtHelper } from '../../../helpers/jwtHelper';
 import sendResponse from '../../../shared/sendResponse';
 import catchAsync from '../../../shared/catchAsync';
 import { Secret } from 'jsonwebtoken';
+import ApiError from '../../../errors/ApiError';
+import { User } from '../user/user.model';
 import process from 'process';
 
 type ProcessEnv = {
@@ -33,9 +35,9 @@ type OAuthUser = {
 };
 
 const googleCallback = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user as OAuthUser | undefined;
+  const oauthUser = req.user as OAuthUser | undefined;
 
-  if (!user) {
+  if (!oauthUser) {
     return sendResponse(res, {
       success: false,
       statusCode: StatusCodes.UNAUTHORIZED,
@@ -43,7 +45,20 @@ const googleCallback = catchAsync(async (req: Request, res: Response) => {
     });
   }
 
-  const userId = user._id.toString();
+  const userId = oauthUser._id.toString();
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  if (user.status === 'block') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Your account has been blocked. Please contact support for assistance.',
+    );
+  }
+
   const userRole = user.role || 'USER';
 
   // Generate JWT tokens
