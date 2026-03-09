@@ -21,13 +21,16 @@ const createBankTransaction = catchAsync(
 
 const getAllBankTransactions = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await BankTransactionService.getAllBankTransactionsFromDB();
+    const result = await BankTransactionService.getAllBankTransactionsFromDB(
+      req.query,
+    );
 
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Bank transactions retrieved successfully',
-      data: result,
+      pagination: result.meta,
+      data: result.data,
     });
   },
 );
@@ -49,16 +52,18 @@ const updateBankTransaction = catchAsync(
   },
 );
 
-const deleteBankTransaction = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  await BankTransactionService.deleteBankTransactionToDB(id);
+const deleteBankTransaction = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    await BankTransactionService.deleteBankTransactionToDB(id);
 
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: 'Bank transaction deleted successfully',
-  });
-});
+    sendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Bank transaction deleted successfully',
+    });
+  },
+);
 
 export const BankTransactionController = {
   createBankTransaction,
