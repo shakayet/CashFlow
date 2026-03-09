@@ -1,12 +1,14 @@
 import { ICreateAccount, IResetPassword } from '../types/emailTamplate';
 import config from '../config';
+
+const BRAND_NAME = 'JBAY';
 const LOGO_PNG =
   config.brand?.logo_url || 'https://i.postimg.cc/6pgNvKhD/logo.png';
 
 const createAccount = (values: ICreateAccount) => {
   const data = {
     to: values.email,
-    subject: 'Verify your CashFlow account',
+    subject: `Verify your ${BRAND_NAME} account`,
     html: `<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; margin: 50px; padding: 20px; color: #555;">
     <div style="width: 100%; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
         <div style="display:block; margin:0 auto 20px; width:150px">
@@ -21,7 +23,7 @@ const createAccount = (values: ICreateAccount) => {
             </defs>
           </svg>
         </div>
-        <h2 style="color: #277E16; font-size: 24px; margin-bottom: 20px; text-align:center">Hey ${values.name}, verify your CashFlow account</h2>
+        <h2 style="color: #277E16; font-size: 24px; margin-bottom: 20px; text-align:center">Hey ${values.name}, verify your ${BRAND_NAME} account</h2>
         <div style="text-align: center;">
             <p style="color: #555; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your single-use code is:</p>
             <div style="background-color: #277E16; width: 100px; padding: 12px; text-align: center; border-radius: 8px; color: #fff; font-size: 28px; letter-spacing: 2px; margin: 20px auto;">${values.otp}</div>
@@ -36,7 +38,7 @@ const createAccount = (values: ICreateAccount) => {
 const resetPassword = (values: IResetPassword) => {
   const data = {
     to: values.email,
-    subject: 'Reset your CashFlow password',
+    subject: `Reset your ${BRAND_NAME} password`,
     html: `<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; margin: 50px; padding: 20px; color: #555;">
     <div style="width: 100%; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
         <div style="display:block; margin:0 auto 20px; width:150px">
@@ -65,7 +67,7 @@ const resetPassword = (values: IResetPassword) => {
 const createAccountModern = (values: ICreateAccount) => {
   const data = {
     to: values.email,
-    subject: 'Verify your CashFlow account',
+    subject: `Verify your ${BRAND_NAME} account`,
     html: `<body style="margin:0; padding:0; background:#f5f7fb; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; font-family: Arial, Helvetica, sans-serif;">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f7fb;">
     <tr>
@@ -73,12 +75,12 @@ const createAccountModern = (values: ICreateAccount) => {
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px; background:#ffffff; border-radius:12px; box-shadow:0 6px 16px rgba(10, 22, 70, 0.08); overflow:hidden;">
           <tr>
             <td align="center" style="padding:24px 24px 8px;">
-              <img alt="CashFlow" src="${LOGO_PNG}" width="120" style="display:block; border:0; outline:none; text-decoration:none; border-radius:16px;" />
+              <img alt="${BRAND_NAME}" src="${LOGO_PNG}" width="120" style="display:block; border:0; outline:none; text-decoration:none; border-radius:16px;" />
             </td>
           </tr>
           <tr>
             <td align="center" style="padding:0 24px 16px;">
-              <h1 style="margin:0; font-size:22px; line-height:28px; color:#0F172A;">Verify your CashFlow account</h1>
+              <h1 style="margin:0; font-size:22px; line-height:28px; color:#0F172A;">Verify your ${BRAND_NAME} account</h1>
               <p style="margin:8px 0 0; font-size:14px; line-height:22px; color:#475569;">Hey ${values.name}, use the one-time passcode below to complete verification.</p>
             </td>
           </tr>
@@ -96,6 +98,13 @@ const createAccountModern = (values: ICreateAccount) => {
         </table>
       </td>
     </tr>
+    <tr>
+      <td align="center" style="padding:8px 24px 24px;">
+        <p style="margin:0; font-size:11px; line-height:18px; color:#94A3B8;">
+          <span style="font-weight:600; color:#64748B;">${BRAND_NAME}</span> &bull; © ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved.
+        </p>
+      </td>
+    </tr>
   </table>
 </body>`,
   };
@@ -105,7 +114,7 @@ const createAccountModern = (values: ICreateAccount) => {
 const resetPasswordModern = (values: IResetPassword) => {
   const data = {
     to: values.email,
-    subject: 'Reset your CashFlow password',
+    subject: `Reset your ${BRAND_NAME} password`,
     html: `<body style="margin:0; padding:0; background:#f5f7fb; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; font-family: Arial, Helvetica, sans-serif;">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f7fb;">
     <tr>
@@ -113,12 +122,12 @@ const resetPasswordModern = (values: IResetPassword) => {
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px; background:#ffffff; border-radius:12px; box-shadow:0 6px 16px rgba(10, 22, 70, 0.08); overflow:hidden;">
           <tr>
             <td align="center" style="padding:24px 24px 8px;">
-              <img alt="CashFlow" src="${LOGO_PNG}" width="120" style="display:block; border:0; outline:none; text-decoration:none; border-radius:16px;" />
+              <img alt="${BRAND_NAME}" src="${LOGO_PNG}" width="120" style="display:block; border:0; outline:none; text-decoration:none; border-radius:16px;" />
             </td>
           </tr>
           <tr>
             <td align="center" style="padding:0 24px 16px;">
-              <h1 style="margin:0; font-size:22px; line-height:28px; color:#0F172A;">Reset your CashFlow password</h1>
+              <h1 style="margin:0; font-size:22px; line-height:28px; color:#0F172A;">Reset your ${BRAND_NAME} password</h1>
               <p style="margin:8px 0 0; font-size:14px; line-height:22px; color:#475569;">Use the one-time passcode below to reset your password.</p>
             </td>
           </tr>
@@ -134,6 +143,13 @@ const resetPasswordModern = (values: IResetPassword) => {
             </td>
           </tr>
         </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:8px 24px 24px;">
+        <p style="margin:0; font-size:11px; line-height:18px; color:#94A3B8;">
+          <span style="font-weight:600; color:#64748B;">${BRAND_NAME}</span> &bull; © ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved.
+        </p>
       </td>
     </tr>
   </table>

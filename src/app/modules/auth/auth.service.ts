@@ -254,6 +254,51 @@ const changePasswordToDB = async (
   await User.findOneAndUpdate({ _id: user.id }, updateData, { new: true });
 };
 
+const refreshToken = async (token: string) => {
+  // verify token
+  let verifiedToken = null;
+  try {
+    verifiedToken = jwtHelper.verifyToken(
+      token,
+      config.jwt.jwt_refresh_secret as Secret,
+    ) as JwtPayload;
+  } catch (error) {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'Invalid refresh token');
+  }
+
+  const { email } = verifiedToken;
+
+  // check user
+  const isUserExist = await User.isExistUserByEmail(email);
+  if (!isUserExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exists");
+  }
+
+  // generate new token
+  const newAccessToken = jwtHelper.createToken(
+    {
+      id: isUserExist._id,
+      role: isUserExist.role,
+      email: isUserExist.email,
+    },
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_expire_in as string,
+  );
+
+  const newRefreshToken = jwtHelper.createToken(
+    {
+      id: isUserExist._id,
+    },
+    config.jwt.jwt_refresh_secret as Secret,
+    config.jwt.jwt_refresh_expire_in as string,
+  );
+
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+  };
+};
+
 // resend otp
 const resendOtpToDB = async (email: string) => {
   const isExistUser = await User.findOne({ email });
@@ -301,4 +346,5 @@ export const AuthService = {
   resetPasswordToDB,
   changePasswordToDB,
   resendOtpToDB,
+  refreshToken,
 };

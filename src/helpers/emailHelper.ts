@@ -3,6 +3,8 @@ import config from '../config';
 import { errorLogger, logger } from '../shared/logger';
 import { ISendEmail } from '../types/email';
 
+const BRAND_NAME = 'JBAY';
+
 const transporter = nodemailer.createTransport({
   host: config.email.host,
   port: Number(config.email.port),
@@ -16,7 +18,7 @@ const transporter = nodemailer.createTransport({
 const sendEmail = async (values: ISendEmail) => {
   try {
     const info = await transporter.sendMail({
-      from: `"CashFlowIQ" ${config.email.from}`,
+      from: `"${BRAND_NAME}" ${config.email.from}`,
       to: values.to,
       subject: values.subject,
       html: values.html,

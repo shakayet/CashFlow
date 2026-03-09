@@ -39,4 +39,10 @@ router.post(
 
 router.post('/resend-otp', auth(USER_ROLES.USER), AuthController.resendOtp);
 
+router.post(
+  '/refresh-token',
+  validateRequest(AuthValidation.createRefreshTokenZodSchema),
+  AuthController.refreshToken,
+);
+
 export const AuthRoutes = router;
