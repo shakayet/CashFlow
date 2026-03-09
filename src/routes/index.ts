@@ -10,6 +10,7 @@ import { ChatRoutes } from '../app/modules/chat/chat.route';
 import { TermsAndConditionsRoutes } from '../app/modules/termsAndConditions/termsAndConditions.route';
 import { PrivacyPolicyRoutes } from '../app/modules/privacyPolicy/privacyPolicy.route';
 import { NoticeRoutes } from '../app/modules/notices/notices.route';
+import { BankTransactionRoutes } from '../app/modules/bankTransaction/bankTransaction.route';
 
 const router = express.Router();
 
@@ -57,6 +58,10 @@ const apiRoutes = [
   {
     path: '/notices',
     route: NoticeRoutes,
+  },
+  {
+    path: '/bank-transaction',
+    route: BankTransactionRoutes,
   },
 ];
 

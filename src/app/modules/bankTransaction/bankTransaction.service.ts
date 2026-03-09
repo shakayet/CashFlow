@@ -1,0 +1,38 @@
+import { IBankTransaction } from './bankTransaction.interface';
+import { BankTransaction } from './bankTransaction.model';
+
+const createBankTransactionToDB = async (
+  payload: IBankTransaction,
+): Promise<IBankTransaction> => {
+  const result = await BankTransaction.create(payload);
+  return result;
+};
+
+const getAllBankTransactionsFromDB = async (): Promise<IBankTransaction[]> => {
+  const result = await BankTransaction.find();
+  return result;
+};
+
+const updateBankTransactionToDB = async (
+  id: string,
+  payload: Partial<IBankTransaction>,
+): Promise<IBankTransaction | null> => {
+  const result = await BankTransaction.findByIdAndUpdate(id, payload, {
+    new: true,
+  });
+  return result;
+};
+
+const deleteBankTransactionToDB = async (
+  id: string,
+): Promise<IBankTransaction | null> => {
+  const result = await BankTransaction.findByIdAndDelete(id);
+  return result;
+};
+
+export const BankTransactionService = {
+  createBankTransactionToDB,
+  getAllBankTransactionsFromDB,
+  updateBankTransactionToDB,
+  deleteBankTransactionToDB,
+};
