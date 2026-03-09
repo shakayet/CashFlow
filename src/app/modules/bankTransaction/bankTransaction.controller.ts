@@ -49,19 +49,16 @@ const updateBankTransaction = catchAsync(
   },
 );
 
-const deleteBankTransaction = catchAsync(
-  async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const result = await BankTransactionService.deleteBankTransactionToDB(id);
+const deleteBankTransaction = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await BankTransactionService.deleteBankTransactionToDB(id);
 
-    sendResponse(res, {
-      success: true,
-      statusCode: StatusCodes.OK,
-      message: 'Bank transaction deleted successfully',
-      data: result,
-    });
-  },
-);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Bank transaction deleted successfully',
+  });
+});
 
 export const BankTransactionController = {
   createBankTransaction,

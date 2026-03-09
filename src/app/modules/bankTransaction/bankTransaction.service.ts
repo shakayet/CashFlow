@@ -23,11 +23,8 @@ const updateBankTransactionToDB = async (
   return result;
 };
 
-const deleteBankTransactionToDB = async (
-  id: string,
-): Promise<IBankTransaction | null> => {
-  const result = await BankTransaction.findByIdAndDelete(id);
-  return result;
+const deleteBankTransactionToDB = async (id: string): Promise<void> => {
+  await BankTransaction.findByIdAndDelete(id);
 };
 
 export const BankTransactionService = {
