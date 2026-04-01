@@ -34,7 +34,7 @@ router
     UserController.createUser,
   );
 
-router.get('/', auth(USER_ROLES.ADMIN), UserController.getAllUsers);
+router.get('/', auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN), UserController.getAllUsers);
 
 router.patch(
   '/:id/status',

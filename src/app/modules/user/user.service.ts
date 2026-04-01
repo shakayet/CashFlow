@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-console */
 /* eslint-disable no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -140,9 +141,19 @@ const deleteAccountFromDB = async (user: JwtPayload): Promise<IUser | null> => {
   return deleted;
 };
 
-const getAllUsers = async (): Promise<IUser[]> => {
-  const result = await User.find({});
-  return result;
+import QueryBuilder from '../../../builder/QueryBuilder';
+
+const getAllUsers = async (query: Record<string, any>) => {
+  const userQuery = new QueryBuilder(User.find(), query)
+    .search(['name', 'email'])
+    .filter()
+    .sort()
+    .paginate();
+
+  const result = await userQuery.modelQuery;
+  const pagination = await userQuery.pagination();
+
+  return { pagination, result };
 };
 
 const updateUserStatusToDB = async (

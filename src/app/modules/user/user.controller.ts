@@ -68,11 +68,12 @@ const deleteAccount = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
-  const result = await UserService.getAllUsers();
+  const { result, pagination } = await UserService.getAllUsers(req.query);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
     message: 'Users retrieved successfully',
+    pagination,
     data: result,
   });
 });
