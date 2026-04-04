@@ -261,49 +261,140 @@ const generatePDF = async (res: Response, data: IReportData) => {
 
 const generateExcel = async (res: Response, data: IReportData) => {
   const workbook = new ExcelJS.Workbook();
+  const headerFill: ExcelJS.Fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF1A202C' },
+  };
+  const headerFont: Partial<ExcelJS.Font> = {
+    bold: true,
+    color: { argb: 'FFFFFFFF' },
+    size: 12,
+  };
+  const borderStyle: Partial<ExcelJS.Borders> = {
+    top: { style: 'thin' },
+    left: { style: 'thin' },
+    bottom: { style: 'thin' },
+    right: { style: 'thin' },
+  };
 
-  // Summary Sheet
+  // --- Summary Sheet ---
   const summarySheet = workbook.addWorksheet('Summary');
-  summarySheet.columns = [
-    { header: 'Field', key: 'field', width: 20 },
-    { header: 'Value', key: 'value', width: 25 },
-  ];
+
+  // Main Title
+  summarySheet.mergeCells('A1:B1');
+  const titleCell = summarySheet.getCell('A1');
+  titleCell.value = 'CashFlowIQ - Summary Report';
+  titleCell.font = { bold: true, size: 16, color: { argb: 'FF1A202C' } };
+  titleCell.alignment = { horizontal: 'center' };
+
   summarySheet.addRows([
-    { field: 'Project', value: 'CashFlowIQ' },
-    { field: 'Name', value: data.user.name },
-    { field: 'Start Date', value: data.dateRange.startDate },
-    { field: 'End Date', value: data.dateRange.endDate },
-    { field: 'Generated Date', value: data.generatedDate },
-    {},
-    { field: 'Total Income', value: data.summary.totalIncome },
-    { field: 'Total Expense', value: data.summary.totalExpense },
-    { field: 'Total Savings', value: data.summary.savings },
+    [], // Spacer
+    ['Project', 'CashFlowIQ'],
+    ['Name', data.user.name],
+    ['Period Start', data.dateRange.startDate],
+    ['Period End', data.dateRange.endDate],
+    ['Generated Date', data.generatedDate],
+    [], // Spacer
+    ['Financial Summary'],
+    ['Total Income', data.summary.totalIncome],
+    ['Total Expense', data.summary.totalExpense],
+    ['Net Savings', data.summary.savings],
   ]);
 
-  // Styling Summary Header
-  summarySheet.getRow(1).font = { bold: true };
-  summarySheet.getColumn(1).font = { bold: true };
+  // Style the Summary Sheet
+  summarySheet.getColumn(1).width = 25;
+  summarySheet.getColumn(2).width = 30;
 
-  // Income Sheet
+  // Style Info Rows
+  [3, 4, 5, 6, 7].forEach(rowNum => {
+    summarySheet.getRow(rowNum).getCell(1).font = { bold: true };
+    summarySheet.getRow(rowNum).getCell(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFF7FAFC' },
+    };
+  });
+
+  // Style Financial Summary Header
+  const financialHeader = summarySheet.getRow(9);
+  financialHeader.getCell(1).font = { bold: true, size: 12 };
+  summarySheet.mergeCells('A9:B9');
+
+  // Style Financial Data
+  [10, 11, 12].forEach(rowNum => {
+    const row = summarySheet.getRow(rowNum);
+    row.getCell(1).font = { bold: true };
+    row.getCell(2).numFmt = '"$"#,##0.00';
+    if (rowNum === 12) {
+      row.getCell(2).font = {
+        bold: true,
+        color: { argb: data.summary.savings >= 0 ? 'FF22543D' : 'FF742A2A' },
+      };
+    }
+  });
+
+  // --- Income Breakdown Sheet ---
   const incomeSheet = workbook.addWorksheet('Income Breakdown');
   incomeSheet.columns = [
-    { header: 'Category', key: 'category', width: 30 },
-    { header: 'Total ($)', key: 'total', width: 15 },
-    { header: 'Percentage (%)', key: 'percentage', width: 15 },
+    { header: 'Category', key: 'category', width: 35 },
+    { header: 'Total Amount ($)', key: 'total', width: 20 },
+    { header: 'Percentage (%)', key: 'percentage', width: 20 },
   ];
-  incomeSheet.addRows(data.incomeBreakdown);
-  incomeSheet.getRow(1).font = { bold: true };
 
-  // Expense Sheet
+  incomeSheet.addRows(data.incomeBreakdown);
+
+  // Style Header
+  const incomeHeader = incomeSheet.getRow(1);
+  incomeHeader.eachCell(cell => {
+    cell.fill = headerFill;
+    cell.font = headerFont;
+    cell.border = borderStyle;
+    cell.alignment = { horizontal: 'center' };
+  });
+
+  // Style Data Rows
+  incomeSheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 1) {
+      row.getCell(2).numFmt = '"$"#,##0.00';
+      row.getCell(3).numFmt = '0.00"%"';
+      row.eachCell(cell => {
+        cell.border = borderStyle;
+      });
+    }
+  });
+
+  // --- Expense Breakdown Sheet ---
   const expenseSheet = workbook.addWorksheet('Expense Breakdown');
   expenseSheet.columns = [
-    { header: 'Category', key: 'category', width: 30 },
-    { header: 'Total ($)', key: 'total', width: 15 },
-    { header: 'Percentage (%)', key: 'percentage', width: 15 },
+    { header: 'Category', key: 'category', width: 35 },
+    { header: 'Total Amount ($)', key: 'total', width: 20 },
+    { header: 'Percentage (%)', key: 'percentage', width: 20 },
   ];
-  expenseSheet.addRows(data.expenseBreakdown);
-  expenseSheet.getRow(1).font = { bold: true };
 
+  expenseSheet.addRows(data.expenseBreakdown);
+
+  // Style Header
+  const expenseHeader = expenseSheet.getRow(1);
+  expenseHeader.eachCell(cell => {
+    cell.fill = headerFill;
+    cell.font = headerFont;
+    cell.border = borderStyle;
+    cell.alignment = { horizontal: 'center' };
+  });
+
+  // Style Data Rows
+  expenseSheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 1) {
+      row.getCell(2).numFmt = '"$"#,##0.00';
+      row.getCell(3).numFmt = '0.00"%"';
+      row.eachCell(cell => {
+        cell.border = borderStyle;
+      });
+    }
+  });
+
+  // Send the file
   res.setHeader(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
