@@ -11,6 +11,7 @@ import { TermsAndConditionsRoutes } from '../app/modules/termsAndConditions/term
 import { PrivacyPolicyRoutes } from '../app/modules/privacyPolicy/privacyPolicy.route';
 import { NoticeRoutes } from '../app/modules/notices/notices.route';
 import { BankTransactionRoutes } from '../app/modules/bankTransaction/bankTransaction.route';
+import { ReportRoutes } from '../app/modules/report/report.route';
 
 const router = express.Router();
 
@@ -62,6 +63,10 @@ const apiRoutes = [
   {
     path: '/bank-transaction',
     route: BankTransactionRoutes,
+  },
+  {
+    path: '/reports',
+    route: ReportRoutes,
   },
 ];
 
