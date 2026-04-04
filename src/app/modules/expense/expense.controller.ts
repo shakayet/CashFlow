@@ -64,8 +64,7 @@ const createExpense = catchAsync(
 
 const getExpenses = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
-  const { month, year } = req.query as Record<string, string | undefined>;
-  const result = await ExpenseService.getExpenseFromDB(user, { month, year });
+  const result = await ExpenseService.getExpenseFromDB(user, req.query);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -73,6 +72,7 @@ const getExpenses = catchAsync(async (req: Request, res: Response) => {
       result.mode === 'detailed'
         ? 'Expense list retrieved successfully'
         : 'Monthly expense summary retrieved successfully',
+    pagination: result.pagination,
     data: result.data as any,
   });
 });
@@ -140,11 +140,15 @@ const deleteExpense = catchAsync(async (req: Request, res: Response) => {
 
 const getExpenseHistory = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
-  const result = await ExpenseService.getExpenseHistoryFromDB(user);
+  const { result, pagination } = await ExpenseService.getExpenseHistoryFromDB(
+    user,
+    req.query,
+  );
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Expense history retrieved successfully',
+    pagination,
     data: result,
   });
 });

@@ -67,8 +67,8 @@ class QueryBuilder<T extends Document> {
     return {
       page,
       limit,
-      total,
       totalPage: Math.ceil(total / limit),
+      total,
     };
   }
 }

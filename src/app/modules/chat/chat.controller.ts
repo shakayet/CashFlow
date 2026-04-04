@@ -41,19 +41,14 @@ const sendChatMessage = catchAsync(async (req: Request, res: Response) => {
 const getChatMessages = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as JwtPayload;
   const { chatRoomId } = req.params;
-  const paginationOptions = req.query;
 
-  const result = await ChatService.getChatMessages(
-    user,
-    chatRoomId,
-    paginationOptions,
-  );
+  const result = await ChatService.getChatMessages(user, chatRoomId);
 
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Chat messages retrieved successfully',
-    ...result,
+    data: result,
   });
 });
 

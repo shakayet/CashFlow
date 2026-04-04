@@ -24,11 +24,12 @@ const createNotice = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllNotices = catchAsync(async (req: Request, res: Response) => {
-  const result = await NoticesService.getAllNotices();
+  const { result, pagination } = await NoticesService.getAllNotices(req.query);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
     message: 'Notices retrieved successfully',
+    pagination,
     data: result,
   });
 });

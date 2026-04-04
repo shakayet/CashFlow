@@ -20,11 +20,13 @@ const createTermsAndConditions = catchAsync(
 
 const getAllTermsAndConditions = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await TermsAndConditionsService.getAllTermsAndConditions();
+    const { result, pagination } =
+      await TermsAndConditionsService.getAllTermsAndConditions(req.query);
     sendResponse(res, {
       statusCode: StatusCodes.OK,
       success: true,
       message: 'Terms and Conditions retrieved successfully',
+      pagination,
       data: result,
     });
   },

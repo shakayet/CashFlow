@@ -1,4 +1,4 @@
-import QueryBuilder from '../../builder/QueryBuilder';
+import QueryBuilder from '../../../builder/QueryBuilder';
 import { IBankTransaction } from './bankTransaction.interface';
 import { BankTransaction } from './bankTransaction.model';
 
@@ -9,20 +9,19 @@ const createBankTransactionToDB = async (
   return result;
 };
 
-const getAllBankTransactionsFromDB = async (query: Record<string, unknown>) => {
+const getAllBankTransactionsFromDB = async (query: Record<string, any>) => {
   const bankTransactionQuery = new QueryBuilder(BankTransaction.find({}), query)
     .search(['name', 'email', 'phone'])
     .filter()
     .sort()
-    .paginate()
-    .fields();
+    .paginate();
 
   const result = await bankTransactionQuery.modelQuery;
-  const meta = await bankTransactionQuery.getPaginationInfo();
+  const pagination = await bankTransactionQuery.pagination();
 
   return {
-    meta,
-    data: result,
+    pagination,
+    result,
   };
 };
 

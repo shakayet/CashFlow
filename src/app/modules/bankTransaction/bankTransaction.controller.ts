@@ -21,16 +21,15 @@ const createBankTransaction = catchAsync(
 
 const getAllBankTransactions = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await BankTransactionService.getAllBankTransactionsFromDB(
-      req.query,
-    );
+    const { result, pagination } =
+      await BankTransactionService.getAllBankTransactionsFromDB(req.query);
 
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Bank transactions retrieved successfully',
-      pagination: result.meta,
-      data: result.data,
+      pagination,
+      data: result,
     });
   },
 );

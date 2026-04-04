@@ -6,6 +6,8 @@ import { Income } from './income.model';
 import { s3Uploader } from '../../../helpers/s3Uploader';
 import { Types } from 'mongoose';
 
+import QueryBuilder from '../../../builder/QueryBuilder';
+
 const createIncomeToDB = async (
   user: JwtPayload,
   payload: Omit<IIncome, 'user'>,
@@ -24,7 +26,7 @@ const createIncomeToDB = async (
 
 const getIncomeFromDB = async (
   user: JwtPayload,
-  query: { month?: string; year?: string },
+  query: Record<string, any>,
 ) => {
   const userId = user.id;
   let monthParam = query.month;
@@ -34,17 +36,30 @@ const getIncomeFromDB = async (
     yearParam = y;
     monthParam = String(Number(m));
   }
+
   if (monthParam && yearParam) {
     const m = Number(monthParam);
     const y = Number(yearParam);
     const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
     const end = new Date(Date.UTC(y, m, 0, 23, 59, 59));
-    const docs = await Income.find({
-      user: userId,
-      date: { $gte: start, $lte: end },
-    }).sort({ date: -1 });
-    return { mode: 'detailed', data: docs };
+
+    const incomeQuery = new QueryBuilder(
+      Income.find({
+        user: userId,
+        date: { $gte: start, $lte: end },
+      }),
+      query,
+    )
+      .filter()
+      .sort()
+      .paginate();
+
+    const result = await incomeQuery.modelQuery;
+    const pagination = await incomeQuery.pagination();
+
+    return { mode: 'detailed', data: result, pagination };
   }
+
   const summary = await Income.aggregate([
     { $match: { user: new Types.ObjectId(userId) } },
     {
@@ -109,10 +124,20 @@ const deleteIncomeFromDB = async (user: JwtPayload, id: string) => {
   return { id };
 };
 
-const getIncomeHistoryFromDB = async (user: JwtPayload) => {
+const getIncomeHistoryFromDB = async (
+  user: JwtPayload,
+  query: Record<string, any>,
+) => {
   const userId = user.id;
-  const docs = await Income.find({ user: userId }).sort({ date: -1 });
-  return docs;
+  const incomeQuery = new QueryBuilder(Income.find({ user: userId }), query)
+    .filter()
+    .sort()
+    .paginate();
+
+  const result = await incomeQuery.modelQuery;
+  const pagination = await incomeQuery.pagination();
+
+  return { result, pagination };
 };
 
 export const IncomeService = {

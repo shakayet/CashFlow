@@ -16,11 +16,13 @@ const createPrivacyPolicy = catchAsync(async (req: Request, res: Response) => {
 
 const getAllPrivacyPolicies = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await PrivacyPolicyService.getAllPrivacyPolicies();
+    const { result, pagination } =
+      await PrivacyPolicyService.getAllPrivacyPolicies(req.query);
     sendResponse(res, {
       statusCode: StatusCodes.OK,
       success: true,
       message: 'Privacy Policies retrieved successfully',
+      pagination,
       data: result,
     });
   },

@@ -6,6 +6,8 @@ import { Expense } from './expense.model';
 import { s3Uploader } from '../../../helpers/s3Uploader';
 import { Types } from 'mongoose';
 
+import QueryBuilder from '../../../builder/QueryBuilder';
+
 const createExpenseToDB = async (
   user: JwtPayload,
   payload: Omit<IExpense, 'user'>,
@@ -24,7 +26,7 @@ const createExpenseToDB = async (
 
 const getExpenseFromDB = async (
   user: JwtPayload,
-  query: { month?: string; year?: string },
+  query: Record<string, any>,
 ) => {
   const userId = user.id;
   let monthParam = query.month;
@@ -34,17 +36,30 @@ const getExpenseFromDB = async (
     yearParam = y;
     monthParam = String(Number(m));
   }
+
   if (monthParam && yearParam) {
     const m = Number(monthParam);
     const y = Number(yearParam);
     const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
     const end = new Date(Date.UTC(y, m, 0, 23, 59, 59));
-    const docs = await Expense.find({
-      user: userId,
-      date: { $gte: start, $lte: end },
-    }).sort({ date: -1 });
-    return { mode: 'detailed', data: docs };
+
+    const expenseQuery = new QueryBuilder(
+      Expense.find({
+        user: userId,
+        date: { $gte: start, $lte: end },
+      }),
+      query,
+    )
+      .filter()
+      .sort()
+      .paginate();
+
+    const result = await expenseQuery.modelQuery;
+    const pagination = await expenseQuery.pagination();
+
+    return { mode: 'detailed', data: result, pagination };
   }
+
   const summary = await Expense.aggregate([
     { $match: { user: new Types.ObjectId(userId) } },
     {
@@ -109,10 +124,20 @@ const deleteExpenseFromDB = async (user: JwtPayload, id: string) => {
   return { id };
 };
 
-const getExpenseHistoryFromDB = async (user: JwtPayload) => {
+const getExpenseHistoryFromDB = async (
+  user: JwtPayload,
+  query: Record<string, any>,
+) => {
   const userId = user.id;
-  const docs = await Expense.find({ user: userId }).sort({ date: -1 });
-  return docs;
+  const expenseQuery = new QueryBuilder(Expense.find({ user: userId }), query)
+    .filter()
+    .sort()
+    .paginate();
+
+  const result = await expenseQuery.modelQuery;
+  const pagination = await expenseQuery.pagination();
+
+  return { result, pagination };
 };
 
 export const ExpenseService = {

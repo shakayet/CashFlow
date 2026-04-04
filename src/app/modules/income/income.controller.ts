@@ -64,8 +64,7 @@ const createIncome = catchAsync(
 
 const getIncomes = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
-  const { month, year } = req.query as Record<string, string | undefined>;
-  const result = await IncomeService.getIncomeFromDB(user, { month, year });
+  const result = await IncomeService.getIncomeFromDB(user, req.query);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -73,6 +72,7 @@ const getIncomes = catchAsync(async (req: Request, res: Response) => {
       result.mode === 'detailed'
         ? 'Income list retrieved successfully'
         : 'Monthly income summary retrieved successfully',
+    pagination: result.pagination,
     data: result.data as any,
   });
 });
@@ -140,11 +140,15 @@ const deleteIncome = catchAsync(async (req: Request, res: Response) => {
 
 const getIncomeHistory = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
-  const result = await IncomeService.getIncomeHistoryFromDB(user);
+  const { result, pagination } = await IncomeService.getIncomeHistoryFromDB(
+    user,
+    req.query,
+  );
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Income history retrieved successfully',
+    pagination,
     data: result,
   });
 });

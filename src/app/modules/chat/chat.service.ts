@@ -111,14 +111,7 @@ const sendMessage = async (
   return newMessage;
 };
 
-const getChatMessages = async (
-  user: JwtPayload,
-  chatRoomId: string,
-  paginationOptions: { page?: number; limit?: number },
-) => {
-  const { page = 1, limit = 10 } = paginationOptions;
-  const skip = (page - 1) * limit;
-
+const getChatMessages = async (user: JwtPayload, chatRoomId: string) => {
   const chatRoom = await ChatRoom.findById(chatRoomId);
 
   if (!chatRoom) {
@@ -134,21 +127,10 @@ const getChatMessages = async (
   }
 
   const messages = await ChatMessage.find({ chatRoom: chatRoomId })
-    .sort({ createdAt: 1 })
-    .skip(skip)
-    .limit(limit)
-    .populate('sender', 'name profileImage'); // Populate sender details
+    .populate('sender', 'name profileImage')
+    .sort({ createdAt: 1 });
 
-  const total = await ChatMessage.countDocuments({ chatRoom: chatRoomId });
-
-  return {
-    meta: {
-      page,
-      limit,
-      total,
-    },
-    data: messages,
-  };
+  return messages;
 };
 
 const markMessagesAsRead = async (user: JwtPayload, chatRoomId: string) => {

@@ -6,6 +6,8 @@ import { s3Uploader } from '../../../helpers/s3Uploader';
 import { INotice } from './notices.interface';
 import { Notice } from './notices.model';
 
+import QueryBuilder from '../../../builder/QueryBuilder';
+
 const createNotice = async (
   payload: Partial<INotice>,
   file: Express.Multer.File,
@@ -36,9 +38,16 @@ const createNotice = async (
   return result;
 };
 
-const getAllNotices = async (): Promise<INotice[]> => {
-  const result = await Notice.find({});
-  return result;
+const getAllNotices = async (query: Record<string, any>) => {
+  const noticeQuery = new QueryBuilder(Notice.find({}), query)
+    .filter()
+    .sort()
+    .paginate();
+
+  const result = await noticeQuery.modelQuery;
+  const pagination = await noticeQuery.pagination();
+
+  return { result, pagination };
 };
 
 const deleteNotice = async (id: string): Promise<INotice | null> => {

@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // import { StatusCodes } from 'http-status-codes';
 // import ApiError from '../../../errors/ApiError';
+import QueryBuilder from '../../../builder/QueryBuilder';
 import { ITermsAndConditions } from './termsAndConditions.interface';
 import { TermsAndConditions } from './termsAndConditions.model';
 
@@ -10,9 +12,16 @@ const createTermsAndConditions = async (
   return result;
 };
 
-const getAllTermsAndConditions = async (): Promise<ITermsAndConditions[]> => {
-  const result = await TermsAndConditions.find({});
-  return result;
+const getAllTermsAndConditions = async (query: Record<string, any>) => {
+  const termsQuery = new QueryBuilder(TermsAndConditions.find({}), query)
+    .filter()
+    .sort()
+    .paginate();
+
+  const result = await termsQuery.modelQuery;
+  const pagination = await termsQuery.pagination();
+
+  return { result, pagination };
 };
 
 const getSingleTermsAndConditions = async (
