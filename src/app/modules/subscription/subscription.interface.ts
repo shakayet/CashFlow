@@ -23,7 +23,6 @@ export enum PLATFORM {
 export type ISubscription = {
   user: Types.ObjectId;
   plan: SUBSCRIPTION_PLAN;
-  platform: PLATFORM;
   transactionId: string;
   purchaseToken: string; // receipt/token
   startDate: Date;

@@ -35,14 +35,17 @@ const getMySubscription = catchAsync(async (req: Request, res: Response) => {
 const getSubscriptionHistory = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user as JwtPayload;
-    const result = await SubscriptionService.getSubscriptionHistoryFromDB(
-      user.id,
-    );
+    const { result, pagination } =
+      await SubscriptionService.getSubscriptionHistoryFromDB(
+        user.id,
+        req.query,
+      );
 
     sendResponse(res, {
       statusCode: StatusCodes.OK,
       success: true,
       message: 'Subscription history retrieved successfully',
+      pagination,
       data: result,
     });
   },

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { StatusCodes } from 'http-status-codes';
 import { Types } from 'mongoose';
 import ApiError from '../../../errors/ApiError';
@@ -8,6 +9,7 @@ import {
   SUBSCRIPTION_STATUS,
 } from './subscription.interface';
 import { Subscription } from './subscription.model';
+import QueryBuilder from '../../../builder/QueryBuilder';
 
 const createSubscriptionToDB = async (
   userId: string,
@@ -66,11 +68,20 @@ const getMySubscriptionFromDB = async (
 
 const getSubscriptionHistoryFromDB = async (
   userId: string,
-): Promise<ISubscription[]> => {
-  const subscriptions = await Subscription.find({ user: userId }).sort({
-    createdAt: -1,
-  });
-  return subscriptions;
+  query: Record<string, any>,
+): Promise<{ pagination: any; result: ISubscription[] }> => {
+  const subscriptionQuery = new QueryBuilder(
+    Subscription.find({ user: userId }),
+    query,
+  )
+    .filter()
+    .sort()
+    .paginate();
+
+  const result = await subscriptionQuery.modelQuery;
+  const pagination = await subscriptionQuery.pagination();
+
+  return { pagination, result };
 };
 
 const checkSubscriptionStatus = async (
