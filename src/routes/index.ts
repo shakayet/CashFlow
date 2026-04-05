@@ -13,6 +13,7 @@ import { NoticeRoutes } from '../app/modules/notices/notices.route';
 import { BankTransactionRoutes } from '../app/modules/bankTransaction/bankTransaction.route';
 import { ReportRoutes } from '../app/modules/report/report.route';
 import { SubscriptionRoutes } from '../app/modules/subscription/subscription.route';
+import { OCRRoutes } from '../app/modules/ocr/ocr.route';
 
 const router = express.Router();
 
@@ -72,6 +73,10 @@ const apiRoutes = [
   {
     path: '/subscriptions',
     route: SubscriptionRoutes,
+  },
+  {
+    path: '/ocr',
+    route: OCRRoutes,
   },
 ];
 
