@@ -14,6 +14,7 @@ export type IUser = {
   avatar?: string;
   status: 'active' | 'block';
   plan: SUBSCRIPTION_PLAN;
+  expireDate?: Date;
   verified: boolean;
   provider?: 'local' | 'google' | 'facebook' | 'github';
   providerId?: string;

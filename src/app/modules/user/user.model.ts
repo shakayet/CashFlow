@@ -48,6 +48,10 @@ const userSchema = new Schema<IUser, UserModal>(
       enum: Object.values(SUBSCRIPTION_PLAN),
       default: SUBSCRIPTION_PLAN.FREE,
     },
+    expireDate: {
+      type: Date,
+      default: null,
+    },
     verified: {
       type: Boolean,
       default: false,

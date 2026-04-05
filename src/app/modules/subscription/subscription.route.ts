@@ -20,6 +20,12 @@ router
   );
 
 router.get(
+  '/check-status',
+  auth(USER_ROLES.USER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  SubscriptionController.checkSubscriptionStatus,
+);
+
+router.get(
   '/history',
   auth(USER_ROLES.USER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   SubscriptionController.getSubscriptionHistory,

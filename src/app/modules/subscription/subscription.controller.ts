@@ -7,7 +7,10 @@ import { JwtPayload } from 'jsonwebtoken';
 
 const createSubscription = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as JwtPayload;
-  const result = await SubscriptionService.createSubscriptionToDB(user.id, req.body);
+  const result = await SubscriptionService.createSubscriptionToDB(
+    user.id,
+    req.body,
+  );
 
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
@@ -29,20 +32,39 @@ const getMySubscription = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getSubscriptionHistory = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user as JwtPayload;
-  const result = await SubscriptionService.getSubscriptionHistoryFromDB(user.id);
+const getSubscriptionHistory = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user as JwtPayload;
+    const result = await SubscriptionService.getSubscriptionHistoryFromDB(
+      user.id,
+    );
 
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: 'Subscription history retrieved successfully',
-    data: result,
-  });
-});
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: 'Subscription history retrieved successfully',
+      data: result,
+    });
+  },
+);
+
+const checkSubscriptionStatus = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user as JwtPayload;
+    const result = await SubscriptionService.checkSubscriptionStatus(user.id);
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: 'Subscription status retrieved successfully',
+      data: result,
+    });
+  },
+);
 
 export const SubscriptionController = {
   createSubscription,
   getMySubscription,
   getSubscriptionHistory,
+  checkSubscriptionStatus,
 };

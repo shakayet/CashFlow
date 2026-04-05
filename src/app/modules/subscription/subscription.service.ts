@@ -40,8 +40,11 @@ const createSubscriptionToDB = async (
     status: SUBSCRIPTION_STATUS.ACTIVE,
   });
 
-  // Update user's current plan
-  await User.findByIdAndUpdate(userId, { plan: payload.plan });
+  // Update user's current plan and expireDate
+  await User.findByIdAndUpdate(userId, {
+    plan: payload.plan,
+    expireDate: payload.expiryDate,
+  });
 
   // Sync user plan check (simple notification logic for now as notification module wasn't found)
   // In a real scenario, you would import a Notification model or Service here
@@ -70,19 +73,43 @@ const getSubscriptionHistoryFromDB = async (
   return subscriptions;
 };
 
-const checkSubscriptionStatus = async (userId: string): Promise<void> => {
-  const activeSubscription = await Subscription.findOne({
-    user: userId,
-    status: SUBSCRIPTION_STATUS.ACTIVE,
-  });
-
-  if (activeSubscription && activeSubscription.expiryDate < new Date()) {
-    activeSubscription.status = SUBSCRIPTION_STATUS.EXPIRED;
-    await activeSubscription.save();
-
-    // Fallback user plan to Free
-    await User.findByIdAndUpdate(userId, { plan: SUBSCRIPTION_PLAN.FREE });
+const checkSubscriptionStatus = async (
+  userId: string,
+): Promise<{ isPremium: boolean; plan: SUBSCRIPTION_PLAN }> => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
   }
+
+  const now = new Date();
+
+  // If user is not on FREE plan but expireDate has passed, update to FREE
+  if (
+    user.plan !== SUBSCRIPTION_PLAN.FREE &&
+    user.expireDate &&
+    user.expireDate < now
+  ) {
+    user.plan = SUBSCRIPTION_PLAN.FREE;
+    user.expireDate = undefined;
+    await user.save();
+
+    // Also update any active subscription in the Subscription model to EXPIRED
+    await Subscription.updateMany(
+      {
+        user: userId,
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        expiryDate: { $lt: now },
+      },
+      { status: SUBSCRIPTION_STATUS.EXPIRED },
+    );
+  }
+
+  const isPremium = user.plan !== SUBSCRIPTION_PLAN.FREE;
+
+  return {
+    isPremium,
+    plan: user.plan,
+  };
 };
 
 export const SubscriptionService = {
