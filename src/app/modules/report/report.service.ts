@@ -334,6 +334,48 @@ const generateExcel = async (res: Response, data: IReportData) => {
     }
   });
 
+  // --- Income Breakdown on Summary Sheet ---
+  let currentRow = 14;
+  summarySheet.getRow(currentRow).getCell(1).value = 'Income Breakdown';
+  summarySheet.getRow(currentRow).getCell(1).font = { bold: true, size: 12 };
+  summarySheet.mergeCells(`A${currentRow}:B${currentRow}`);
+  currentRow++;
+
+  if (data.incomeBreakdown.length === 0) {
+    summarySheet.getRow(currentRow).getCell(1).value =
+      'No income data available.';
+    summarySheet.getRow(currentRow).getCell(1).font = { italic: true };
+    currentRow++;
+  } else {
+    data.incomeBreakdown.forEach(item => {
+      summarySheet.getRow(currentRow).getCell(1).value = item.category;
+      summarySheet.getRow(currentRow).getCell(2).value = item.total;
+      summarySheet.getRow(currentRow).getCell(2).numFmt = '"$"#,##0.00';
+      currentRow++;
+    });
+  }
+  currentRow++; // Spacer
+
+  // --- Expense Breakdown on Summary Sheet ---
+  summarySheet.getRow(currentRow).getCell(1).value = 'Expense Breakdown';
+  summarySheet.getRow(currentRow).getCell(1).font = { bold: true, size: 12 };
+  summarySheet.mergeCells(`A${currentRow}:B${currentRow}`);
+  currentRow++;
+
+  if (data.expenseBreakdown.length === 0) {
+    summarySheet.getRow(currentRow).getCell(1).value =
+      'No expense data available.';
+    summarySheet.getRow(currentRow).getCell(1).font = { italic: true };
+    currentRow++;
+  } else {
+    data.expenseBreakdown.forEach(item => {
+      summarySheet.getRow(currentRow).getCell(1).value = item.category;
+      summarySheet.getRow(currentRow).getCell(2).value = item.total;
+      summarySheet.getRow(currentRow).getCell(2).numFmt = '"$"#,##0.00';
+      currentRow++;
+    });
+  }
+
   // --- Income Breakdown Sheet ---
   const incomeSheet = workbook.addWorksheet('Income Breakdown');
   incomeSheet.columns = [
