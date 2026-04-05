@@ -108,9 +108,11 @@ userSchema.statics.isMatchPassword = async (
 //check user
 userSchema.pre('save', async function (next) {
   //check user
-  const isExist = await User.findOne({ email: this.email });
-  if (isExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Email already exist!');
+  if (this.isNew) {
+    const isExist = await User.findOne({ email: this.email });
+    if (isExist) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Email already exist!');
+    }
   }
 
   //password hash (only for local auth with password)
