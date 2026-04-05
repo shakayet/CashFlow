@@ -5,6 +5,7 @@ import config from '../../../config';
 import { USER_ROLES } from '../../../enums/user';
 import ApiError from '../../../errors/ApiError';
 import { IUser, UserModal } from './user.interface';
+import { SUBSCRIPTION_PLAN } from '../subscription/subscription.interface';
 
 const userSchema = new Schema<IUser, UserModal>(
   {
@@ -44,7 +45,8 @@ const userSchema = new Schema<IUser, UserModal>(
     },
     plan: {
       type: String,
-      default: null,
+      enum: Object.values(SUBSCRIPTION_PLAN),
+      default: SUBSCRIPTION_PLAN.FREE,
     },
     verified: {
       type: Boolean,

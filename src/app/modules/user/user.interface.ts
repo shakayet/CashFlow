@@ -2,6 +2,7 @@
 /* eslint-disable no-unused-vars */
 import { Model } from 'mongoose';
 import { USER_ROLES } from '../../../enums/user';
+import { SUBSCRIPTION_PLAN } from '../subscription/subscription.interface';
 
 export type IUser = {
   name: string;
@@ -12,7 +13,7 @@ export type IUser = {
   image?: string;
   avatar?: string;
   status: 'active' | 'block';
-  plan?: string;
+  plan: SUBSCRIPTION_PLAN;
   verified: boolean;
   provider?: 'local' | 'google' | 'facebook' | 'github';
   providerId?: string;
