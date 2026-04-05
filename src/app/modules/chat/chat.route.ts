@@ -15,10 +15,25 @@ router.post(
   ChatController.createChatRoom,
 );
 
+router.get(
+  '/my-rooms',
+  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  ChatController.getMyChatRooms,
+);
+
 router.post(
   '/send-message/:chatRoomId',
   auth(USER_ROLES.ADMIN, USER_ROLES.USER),
   upload.single('file'),
+  (req, res, next) => {
+    if (req.body.data) {
+      req.body = ChatValidation.sendMessageZodSchema.parse(
+        JSON.parse(req.body.data),
+      );
+    } else {
+      validateRequest(ChatValidation.sendMessageZodSchema)(req, res, next);
+    }
+  },
   ChatController.sendChatMessage,
 );
 

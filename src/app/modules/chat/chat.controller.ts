@@ -42,12 +42,17 @@ const getChatMessages = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as JwtPayload;
   const { chatRoomId } = req.params;
 
-  const result = await ChatService.getChatMessages(user, chatRoomId);
+  const { result, pagination } = await ChatService.getChatMessages(
+    user,
+    chatRoomId,
+    req.query,
+  );
 
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Chat messages retrieved successfully',
+    pagination,
     data: result,
   });
 });
@@ -65,9 +70,26 @@ const markMessagesAsRead = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getMyChatRooms = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as JwtPayload;
+  const { result, pagination } = await ChatService.getMyChatRooms(
+    user,
+    req.query,
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Chat rooms retrieved successfully',
+    pagination,
+    data: result,
+  });
+});
+
 export const ChatController = {
   createChatRoom,
   sendChatMessage,
   getChatMessages,
   markMessagesAsRead,
+  getMyChatRooms,
 };

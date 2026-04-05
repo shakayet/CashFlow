@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-undef */
 import { JwtPayload } from 'jsonwebtoken';
 import { User } from '../user/user.model';
@@ -8,9 +9,16 @@ import httpStatus from 'http-status';
 import { ChatMessage } from './chatMessage.model';
 import { s3Uploader } from '../../../helpers/s3Uploader';
 import { compressImage, compressPdf } from '../../../helpers/fileProcessor';
+import QueryBuilder from '../../../builder/QueryBuilder';
 
 const createChatRoom = async (user: JwtPayload) => {
   const userId = user.id;
+
+  // Check if a chat room already exists for this user
+  const existingChatRoom = await ChatRoom.findOne({ user: userId });
+  if (existingChatRoom) {
+    return existingChatRoom;
+  }
 
   // Find an admin to assign to the chat room
   const adminUser = await User.findOne({ role: USER_ROLES.ADMIN });
@@ -111,7 +119,11 @@ const sendMessage = async (
   return newMessage;
 };
 
-const getChatMessages = async (user: JwtPayload, chatRoomId: string) => {
+const getChatMessages = async (
+  user: JwtPayload,
+  chatRoomId: string,
+  query: Record<string, any>,
+) => {
   const chatRoom = await ChatRoom.findById(chatRoomId);
 
   if (!chatRoom) {
@@ -126,11 +138,21 @@ const getChatMessages = async (user: JwtPayload, chatRoomId: string) => {
     );
   }
 
-  const messages = await ChatMessage.find({ chatRoom: chatRoomId })
-    .populate('sender', 'name profileImage')
-    .sort({ createdAt: 1 });
+  const messageQuery = new QueryBuilder(
+    ChatMessage.find({ chatRoom: chatRoomId }).populate(
+      'sender',
+      'name image avatar',
+    ),
+    query,
+  )
+    .filter()
+    .sort()
+    .paginate();
 
-  return messages;
+  const result = await messageQuery.modelQuery;
+  const pagination = await messageQuery.pagination();
+
+  return { result, pagination };
 };
 
 const markMessagesAsRead = async (user: JwtPayload, chatRoomId: string) => {
@@ -167,9 +189,37 @@ const markMessagesAsRead = async (user: JwtPayload, chatRoomId: string) => {
   };
 };
 
+const getMyChatRooms = async (user: JwtPayload, query: Record<string, any>) => {
+  const userId = user.id;
+  const role = user.role;
+
+  let filter: Record<string, any> = { participants: userId };
+
+  if (role === USER_ROLES.USER) {
+    filter = { user: userId };
+  }
+
+  const chatRoomQuery = new QueryBuilder(
+    ChatRoom.find(filter)
+      .populate('user', 'name image avatar')
+      .populate('admin', 'name image avatar')
+      .populate('lastMessage'),
+    query,
+  )
+    .filter()
+    .sort()
+    .paginate();
+
+  const result = await chatRoomQuery.modelQuery;
+  const pagination = await chatRoomQuery.pagination();
+
+  return { result, pagination };
+};
+
 export const ChatService = {
   createChatRoom,
   sendMessage,
   getChatMessages,
   markMessagesAsRead,
+  getMyChatRooms,
 };

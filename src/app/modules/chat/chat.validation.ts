@@ -1,11 +1,7 @@
 import { z } from 'zod';
 
 const createChatRoomZodSchema = z.object({
-  body: z.object({
-    userId: z.string({
-      required_error: 'User ID is required',
-    }),
-  }),
+  body: z.object({}),
 });
 
 const sendMessageZodSchema = z.object({
