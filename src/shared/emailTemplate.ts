@@ -1,7 +1,7 @@
 import { ICreateAccount, IResetPassword } from '../types/emailTamplate';
 import config from '../config';
 
-const BRAND_NAME = 'JBAY';
+const BRAND_NAME = 'CashFlowIQ';
 const LOGO_PNG =
   config.brand?.logo_url || 'https://i.postimg.cc/6pgNvKhD/logo.png';
 
