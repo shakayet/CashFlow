@@ -27,7 +27,19 @@ const getAllSubscribers = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getMonthlyRevenue = catchAsync(async (req: Request, res: Response) => {
+  const result = await AdminService.getMonthlyRevenue();
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Monthly revenue retrieved successfully',
+    data: result,
+  });
+});
+
 export const AdminController = {
   getDashboardData,
   getAllSubscribers,
+  getMonthlyRevenue,
 };

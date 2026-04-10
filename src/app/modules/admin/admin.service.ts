@@ -174,7 +174,94 @@ const getAllSubscribers = async (query: Record<string, any>) => {
   return { result, pagination };
 };
 
+const getMonthlyRevenue = async () => {
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+  const revenueByMonth = await Subscription.aggregate([
+    {
+      $match: {
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        createdAt: { $gte: twelveMonthsAgo },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$createdAt' },
+          month: { $month: '$createdAt' },
+        },
+        revenue: {
+          $sum: {
+            $switch: {
+              branches: [
+                {
+                  case: { $eq: ['$plan', SUBSCRIPTION_PLAN.BASIC_GROWTH] },
+                  then: {
+                    $cond: [
+                      { $eq: ['$billingCycle', BILLING_CYCLE.MONTHLY] },
+                      29,
+                      299,
+                    ],
+                  },
+                },
+                {
+                  case: { $eq: ['$plan', SUBSCRIPTION_PLAN.PRO_PROFESSIONAL] },
+                  then: {
+                    $cond: [
+                      { $eq: ['$billingCycle', BILLING_CYCLE.MONTHLY] },
+                      59,
+                      599,
+                    ],
+                  },
+                },
+                {
+                  case: { $eq: ['$plan', SUBSCRIPTION_PLAN.ELITE_POWER_USER] },
+                  then: {
+                    $cond: [
+                      { $eq: ['$billingCycle', BILLING_CYCLE.MONTHLY] },
+                      99,
+                      999,
+                    ],
+                  },
+                },
+                {
+                  case: {
+                    $eq: ['$plan', SUBSCRIPTION_PLAN.SHIELD_AUDIT_DEFENSE],
+                  },
+                  then: {
+                    $cond: [
+                      { $eq: ['$billingCycle', BILLING_CYCLE.MONTHLY] },
+                      149,
+                      1499,
+                    ],
+                  },
+                },
+              ],
+              default: 0,
+            },
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        year: '$_id.year',
+        month: '$_id.month',
+        revenue: 1,
+      },
+    },
+    {
+      $sort: { year: -1, month: -1 },
+    },
+  ]);
+
+  return revenueByMonth;
+};
+
 export const AdminService = {
   getDashboardData,
   getAllSubscribers,
+  getMonthlyRevenue,
 };
