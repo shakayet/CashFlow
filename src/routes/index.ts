@@ -14,10 +14,15 @@ import { BankTransactionRoutes } from '../app/modules/bankTransaction/bankTransa
 import { ReportRoutes } from '../app/modules/report/report.route';
 import { SubscriptionRoutes } from '../app/modules/subscription/subscription.route';
 import { OCRRoutes } from '../app/modules/ocr/ocr.route';
+import { AdminRoutes } from '../app/modules/admin/admin.route';
 
 const router = express.Router();
 
 const apiRoutes = [
+  {
+    path: '/admin',
+    route: AdminRoutes,
+  },
   {
     path: '/user',
     route: UserRoutes,

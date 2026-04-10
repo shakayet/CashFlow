@@ -1,9 +1,14 @@
 import { z } from 'zod';
-import { SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from './subscription.interface';
+import {
+  BILLING_CYCLE,
+  SUBSCRIPTION_PLAN,
+  SUBSCRIPTION_STATUS,
+} from './subscription.interface';
 
 const createSubscriptionZodSchema = z.object({
   body: z.object({
     plan: z.nativeEnum(SUBSCRIPTION_PLAN),
+    billingCycle: z.nativeEnum(BILLING_CYCLE),
     transactionId: z.string({ required_error: 'Transaction ID is required' }),
     purchaseToken: z.string({ required_error: 'Purchase token/receipt is required' }),
     startDate: z.string({ required_error: 'Start date is required' }).datetime(),

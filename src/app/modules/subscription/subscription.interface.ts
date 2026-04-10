@@ -20,9 +20,15 @@ export enum PLATFORM {
   ANDROID = 'android',
 }
 
+export enum BILLING_CYCLE {
+  MONTHLY = 'monthly',
+  YEARLY = 'yearly',
+}
+
 export type ISubscription = {
   user: Types.ObjectId;
   plan: SUBSCRIPTION_PLAN;
+  billingCycle: BILLING_CYCLE;
   transactionId: string;
   purchaseToken: string; // receipt/token
   startDate: Date;

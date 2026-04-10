@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose';
 import {
+  BILLING_CYCLE,
   ISubscription,
   SUBSCRIPTION_PLAN,
   SUBSCRIPTION_STATUS,
@@ -16,6 +17,11 @@ const subscriptionSchema = new Schema<ISubscription>(
     plan: {
       type: String,
       enum: Object.values(SUBSCRIPTION_PLAN),
+      required: true,
+    },
+    billingCycle: {
+      type: String,
+      enum: Object.values(BILLING_CYCLE),
       required: true,
     },
     transactionId: {
