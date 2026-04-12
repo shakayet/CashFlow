@@ -8,6 +8,7 @@ import {
 } from '../subscription/subscription.interface';
 import { Subscription } from '../subscription/subscription.model';
 import { User } from '../user/user.model';
+import { IUser } from '../user/user.interface';
 import { IDashboardData } from './admin.interface';
 import QueryBuilder from '../../../builder/QueryBuilder';
 
@@ -286,9 +287,27 @@ const deleteAccount = async (userId: string) => {
   return { message: 'Account and all related data deleted successfully' };
 };
 
+const updateUser = async (userId: string, payload: Partial<IUser>) => {
+  const isExist = await User.findById(userId);
+  if (!isExist) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
+  }
+
+  // Prevent updating sensitive fields like email or password if necessary
+  // For now, let's allow general updates as per admin's requirement
+
+  const result = await User.findByIdAndUpdate(userId, payload, {
+    new: true,
+    runValidators: true,
+  });
+
+  return result;
+};
+
 export const AdminService = {
   getDashboardData,
   getAllSubscribers,
   getMonthlyRevenue,
   deleteAccount,
+  updateUser,
 };

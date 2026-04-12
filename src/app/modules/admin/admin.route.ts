@@ -33,4 +33,11 @@ router
     AdminController.deleteAccount,
   );
 
+router
+  .route('/update-user/:id')
+  .patch(
+    auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+    AdminController.updateUser,
+  );
+
 export const AdminRoutes = router;

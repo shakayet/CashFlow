@@ -51,9 +51,22 @@ const deleteAccount = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateUser = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await AdminService.updateUser(id, req.body);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'User updated successfully',
+    data: result,
+  });
+});
+
 export const AdminController = {
   getDashboardData,
   getAllSubscribers,
   getMonthlyRevenue,
   deleteAccount,
+  updateUser,
 };
