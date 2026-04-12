@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.post(
   '/',
-  auth(USER_ROLES.ADMIN),
+  auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   fileUploadHandler().fields([
     { name: 'doc', maxCount: 1 },
     { name: 'document', maxCount: 1 },
@@ -21,10 +21,14 @@ router.post(
 
 router.get(
   '/',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.SUPER_ADMIN),
   NoticeController.getAllNotices,
 );
 
-router.delete('/:id', auth(USER_ROLES.ADMIN), NoticeController.deleteNotice);
+router.delete(
+  '/:id',
+  auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  NoticeController.deleteNotice,
+);
 
 export const NoticeRoutes = router;
