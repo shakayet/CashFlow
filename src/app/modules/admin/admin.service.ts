@@ -11,6 +11,13 @@ import { User } from '../user/user.model';
 import { IDashboardData } from './admin.interface';
 import QueryBuilder from '../../../builder/QueryBuilder';
 
+import { ChatRoom } from '../chat/chatRoom.model';
+import { ChatMessage } from '../chat/chatMessage.model';
+import { Income } from '../income/income.model';
+import { Expense } from '../expense/expense.model';
+import ApiError from '../../../errors/ApiError';
+import { StatusCodes } from 'http-status-codes';
+
 const PLAN_PRICES = {
   [SUBSCRIPTION_PLAN.BASIC_GROWTH]: { monthly: 29, yearly: 299 },
   [SUBSCRIPTION_PLAN.PRO_PROFESSIONAL]: { monthly: 59, yearly: 599 },
@@ -260,8 +267,28 @@ const getMonthlyRevenue = async () => {
   return revenueByMonth;
 };
 
+const deleteAccount = async (userId: string) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
+  }
+
+  // Delete all related data
+  await Promise.all([
+    User.findByIdAndDelete(userId),
+    Subscription.deleteMany({ user: userId }),
+    Income.deleteMany({ user: userId }),
+    Expense.deleteMany({ user: userId }),
+    ChatRoom.deleteMany({ participants: userId }),
+    ChatMessage.deleteMany({ sender: userId }),
+  ]);
+
+  return { message: 'Account and all related data deleted successfully' };
+};
+
 export const AdminService = {
   getDashboardData,
   getAllSubscribers,
   getMonthlyRevenue,
+  deleteAccount,
 };

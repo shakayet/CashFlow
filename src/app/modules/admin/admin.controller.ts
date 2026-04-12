@@ -16,7 +16,9 @@ const getDashboardData = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllSubscribers = catchAsync(async (req: Request, res: Response) => {
-  const { result, pagination } = await AdminService.getAllSubscribers(req.query);
+  const { result, pagination } = await AdminService.getAllSubscribers(
+    req.query,
+  );
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -38,8 +40,20 @@ const getMonthlyRevenue = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const deleteAccount = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await AdminService.deleteAccount(id);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+  });
+});
+
 export const AdminController = {
   getDashboardData,
   getAllSubscribers,
   getMonthlyRevenue,
+  deleteAccount,
 };
