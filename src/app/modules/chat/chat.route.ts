@@ -27,9 +27,10 @@ router.post(
   upload.single('file'),
   (req, res, next) => {
     if (req.body.data) {
-      req.body = ChatValidation.sendMessageZodSchema.parse(
-        JSON.parse(req.body.data),
-      );
+      const parsedData = JSON.parse(req.body.data);
+      req.body = ChatValidation.sendMessageZodSchema.parse({
+        body: parsedData,
+      }).body;
     } else {
       validateRequest(ChatValidation.sendMessageZodSchema)(req, res, next);
     }
