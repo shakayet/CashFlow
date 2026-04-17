@@ -36,6 +36,13 @@ const createChatRoom = async (user: JwtPayload) => {
     user: userId,
   });
 
+  // @ts-ignore
+  if (global.io) {
+    // Notify both user and admin about the new chat room
+    // @ts-ignore
+    global.io.to(userId).to(adminUser._id.toString()).emit('chatRoomCreated', newChatRoom);
+  }
+
   return newChatRoom;
 };
 
@@ -116,7 +123,19 @@ const sendMessage = async (
   chatRoom.lastMessage = newMessage._id;
   await chatRoom.save();
 
-  return newMessage;
+  // Populate sender info for the new message to match getChatMessages response
+  const populatedMessage = await ChatMessage.findById(newMessage._id).populate(
+    'sender',
+    'name image avatar',
+  );
+
+  // @ts-ignore
+  if (global.io) {
+    // @ts-ignore
+    global.io.to(chatRoomId).emit('newMessage', populatedMessage);
+  }
+
+  return populatedMessage;
 };
 
 const getChatMessages = async (
@@ -183,6 +202,12 @@ const markMessagesAsRead = async (user: JwtPayload, chatRoomId: string) => {
       $addToSet: { readBy: userId }, // Add user to readBy array
     },
   );
+
+  // @ts-ignore
+  if (global.io) {
+    // @ts-ignore
+    global.io.to(chatRoomId).emit('messagesRead', { chatRoomId, userId });
+  }
 
   return {
     message: 'Messages marked as read successfully',

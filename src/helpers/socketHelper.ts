@@ -13,7 +13,11 @@ import { ChatService } from '../app/modules/chat/chat.service';
 
 const socket = (io: Server) => {
   io.use(async (socket: Socket, next) => {
-    const token = socket.handshake.auth.token;
+    let token = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
+    if (token && token.startsWith('Bearer ')) {
+      token = token.split(' ')[1];
+    }
+    
     if (!token) {
       return next(new Error('Authentication error: Token not provided'));
     }
@@ -31,11 +35,17 @@ const socket = (io: Server) => {
 
   io.on('connection', socket => {
     logger.info(colors.blue(`User connected: ${socket.data.user.id}`));
+    // Join a personal room for user-specific events
+    socket.join(socket.data.user.id);
 
     socket.on('joinRoom', async (payload: any) => {
       try {
         const user = socket.data.user;
-        const chatRoomId = typeof payload === 'string' ? payload : payload?.chatRoomId || payload?.id || payload?.roomId;
+        let parsedPayload = payload;
+        if (typeof payload === 'string') {
+          try { parsedPayload = JSON.parse(payload); } catch(e) {}
+        }
+        const chatRoomId = typeof parsedPayload === 'string' ? parsedPayload : parsedPayload?.chatRoomId || parsedPayload?.id || parsedPayload?.roomId;
 
         if (!chatRoomId || typeof chatRoomId !== 'string') {
           socket.emit('roomError', 'Invalid chat room ID format.');
@@ -62,11 +72,16 @@ const socket = (io: Server) => {
       'sendMessage',
       async (messagePayload: any) => {
         const user = socket.data.user;
-        const chatRoomId = typeof messagePayload.chatRoomId === 'string' 
-          ? messagePayload.chatRoomId 
-          : messagePayload.chatRoomId?.chatRoomId || messagePayload.chatRoomId?.id || messagePayload.chatRoomId?.roomId || messagePayload.chatRoomId?.room;
+        let parsedPayload = messagePayload;
+        if (typeof messagePayload === 'string') {
+          try { parsedPayload = JSON.parse(messagePayload); } catch(e) {}
+        }
         
-        const { messageType, content, file } = messagePayload;
+        const chatRoomId = typeof parsedPayload.chatRoomId === 'string' 
+          ? parsedPayload.chatRoomId 
+          : parsedPayload.chatRoomId?.chatRoomId || parsedPayload.chatRoomId?.id || parsedPayload.chatRoomId?.roomId || parsedPayload.chatRoomId?.room;
+        
+        const { messageType, content, file } = parsedPayload;
 
         try {
           if (!chatRoomId || typeof chatRoomId !== 'string') {
@@ -100,13 +115,12 @@ const socket = (io: Server) => {
             };
           }
 
-          const newMessage = await ChatService.sendMessage(user, chatRoomId, {
+          // Event emission is now handled by ChatService.sendMessage
+          await ChatService.sendMessage(user, chatRoomId, {
             messageType,
             content,
             file: fileForService,
           });
-
-          io.to(chatRoomId).emit('newMessage', newMessage);
         } catch (error: any) {
           logger.error(colors.red(`Error sending message: ${error.message}`));
           socket.emit('messageError', error.message);
@@ -117,15 +131,19 @@ const socket = (io: Server) => {
     socket.on('markMessagesAsRead', async (payload: any) => {
       try {
         const user = socket.data.user;
-        const chatRoomId = typeof payload === 'string' ? payload : payload?.chatRoomId || payload?.id || payload?.roomId;
+        let parsedPayload = payload;
+        if (typeof payload === 'string') {
+          try { parsedPayload = JSON.parse(payload); } catch(e) {}
+        }
+        const chatRoomId = typeof parsedPayload === 'string' ? parsedPayload : parsedPayload?.chatRoomId || parsedPayload?.id || parsedPayload?.roomId;
 
         if (!chatRoomId || typeof chatRoomId !== 'string') {
           socket.emit('readError', 'Invalid chat room ID format.');
           return;
         }
 
+        // Event emission is now handled by ChatService.markMessagesAsRead
         await ChatService.markMessagesAsRead(user, chatRoomId);
-        io.to(chatRoomId).emit('messagesRead', { chatRoomId, userId: user.id });
       } catch (error: any) {
         logger.error(
           colors.red(`Error marking messages as read: ${error.message}`),
