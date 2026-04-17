@@ -32,32 +32,48 @@ const socket = (io: Server) => {
   io.on('connection', socket => {
     logger.info(colors.blue(`User connected: ${socket.data.user.id}`));
 
-    socket.on('joinRoom', async (chatRoomId: string) => {
-      const user = socket.data.user;
-      const chatRoom = await ChatRoom.findById(chatRoomId);
+    socket.on('joinRoom', async (payload: any) => {
+      try {
+        const user = socket.data.user;
+        const chatRoomId = typeof payload === 'string' ? payload : payload?.chatRoomId || payload?.id || payload?.roomId;
 
-      if (!chatRoom || !chatRoom.participants.includes(user.id)) {
-        socket.emit('roomError', 'You are not authorized to join this room.');
-        return;
+        if (!chatRoomId || typeof chatRoomId !== 'string') {
+          socket.emit('roomError', 'Invalid chat room ID format.');
+          return;
+        }
+
+        const chatRoom = await ChatRoom.findById(chatRoomId);
+
+        if (!chatRoom || !chatRoom.participants.includes(user.id)) {
+          socket.emit('roomError', 'You are not authorized to join this room.');
+          return;
+        }
+
+        socket.join(chatRoomId);
+        logger.info(colors.green(`User ${user.id} joined room ${chatRoomId}`));
+        socket.emit('joinedRoom', chatRoomId);
+      } catch (error: any) {
+        logger.error(colors.red(`Error joining room: ${error.message}`));
+        socket.emit('roomError', 'Internal server error while joining room.');
       }
-
-      socket.join(chatRoomId);
-      logger.info(colors.green(`User ${user.id} joined room ${chatRoomId}`));
-      socket.emit('joinedRoom', chatRoomId);
     });
 
     socket.on(
       'sendMessage',
-      async (messagePayload: {
-        chatRoomId: string;
-        messageType: 'text' | 'image' | 'pdf';
-        content?: string;
-        file?: { buffer: Buffer; originalname: string; mimetype: string };
-      }) => {
+      async (messagePayload: any) => {
         const user = socket.data.user;
-        const { chatRoomId, messageType, content, file } = messagePayload;
+        const chatRoomId = typeof messagePayload.chatRoomId === 'string' 
+          ? messagePayload.chatRoomId 
+          : messagePayload.chatRoomId?.chatRoomId || messagePayload.chatRoomId?.id || messagePayload.chatRoomId?.roomId || messagePayload.chatRoomId?.room;
+        
+        const { messageType, content, file } = messagePayload;
 
         try {
+          if (!chatRoomId || typeof chatRoomId !== 'string') {
+            socket.emit('messageError', 'Invalid chat room ID format.');
+            return;
+          }
+
           const chatRoom = await ChatRoom.findById(chatRoomId);
           if (!chatRoom || !chatRoom.participants.includes(user.id)) {
             socket.emit(
@@ -71,16 +87,16 @@ const socket = (io: Server) => {
           let fileForService: Express.Multer.File | undefined;
           if (file) {
             fileForService = {
-              buffer: file.buffer,
+              buffer: Buffer.from(file.buffer), // Ensure it's a Buffer
               originalname: file.originalname,
               mimetype: file.mimetype,
-              fieldname: 'file', // Required by Multer.File
-              encoding: '7bit', // Required by Multer.File
-              size: file.buffer.length, // Required by Multer.File
-              destination: '', // Required by Multer.File
-              filename: file.originalname, // Required by Multer.File
-              path: '', // Required by Multer.File
-              stream: require('stream').Readable.from(file.buffer), // Add dummy stream
+              fieldname: 'file',
+              encoding: '7bit',
+              size: file.buffer.length,
+              destination: '',
+              filename: file.originalname,
+              path: '',
+              stream: require('stream').Readable.from(file.buffer),
             };
           }
 
@@ -98,9 +114,16 @@ const socket = (io: Server) => {
       },
     );
 
-    socket.on('markMessagesAsRead', async (chatRoomId: string) => {
-      const user = socket.data.user;
+    socket.on('markMessagesAsRead', async (payload: any) => {
       try {
+        const user = socket.data.user;
+        const chatRoomId = typeof payload === 'string' ? payload : payload?.chatRoomId || payload?.id || payload?.roomId;
+
+        if (!chatRoomId || typeof chatRoomId !== 'string') {
+          socket.emit('readError', 'Invalid chat room ID format.');
+          return;
+        }
+
         await ChatService.markMessagesAsRead(user, chatRoomId);
         io.to(chatRoomId).emit('messagesRead', { chatRoomId, userId: user.id });
       } catch (error: any) {
