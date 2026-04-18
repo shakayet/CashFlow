@@ -11,14 +11,14 @@ const router = express.Router();
 
 router.post(
   '/extract-review',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   upload.single('file'), // 'file' is the field name for the uploaded image
   ScanController.extractAndCreateExpense,
 );
 
 router.patch(
   '/:id',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   validateRequest(ScanValidation.updateExpenseZodSchema),
   ScanController.updateExpense,
 );

@@ -7,19 +7,19 @@ const router = express.Router();
 
 router.get(
   '/pdf',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   ReportController.generatePDF,
 );
 
 router.get(
   '/excel',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   ReportController.generateExcel,
 );
 
 router.get(
   '/csv',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   ReportController.generateCSV,
 );
 

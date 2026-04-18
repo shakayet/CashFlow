@@ -10,20 +10,20 @@ const router = express.Router();
 
 router.post(
   '/create-room',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   validateRequest(ChatValidation.createChatRoomZodSchema),
   ChatController.createChatRoom,
 );
 
 router.get(
   '/my-rooms',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.ADMIN, USER_ROLES.USER, USER_ROLES.SUPER_ADMIN),
   ChatController.getMyChatRooms,
 );
 
 router.post(
   '/send-message/:chatRoomId',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   upload.single('file'),
   (req, res, next) => {
     if (req.body.data) {
@@ -40,13 +40,13 @@ router.post(
 
 router.get(
   '/:chatRoomId/messages',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   ChatController.getChatMessages,
 );
 
 router.patch(
   '/:chatRoomId/mark-read',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   ChatController.markMessagesAsRead,
 );
 

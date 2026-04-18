@@ -21,7 +21,7 @@ const createChatRoom = async (user: JwtPayload) => {
   }
 
   // Find an admin to assign to the chat room
-  const adminUser = await User.findOne({ role: USER_ROLES.ADMIN });
+  const adminUser = await User.findOne({ role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] } });
 
   if (!adminUser) {
     throw new ApiError(

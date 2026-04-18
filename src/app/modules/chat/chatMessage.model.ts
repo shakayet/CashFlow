@@ -16,7 +16,7 @@ const ChatMessageSchema = new Schema<IChatMessage>(
     },
     senderRole: {
       type: String,
-      enum: [USER_ROLES.ADMIN, USER_ROLES.USER],
+      enum: [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER],
       required: true,
     },
     messageType: {

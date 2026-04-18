@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.get(
   '/history',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   (req: Request, res: Response, next: NextFunction) => {
     return ExpenseController.getExpenseHistory(req, res, next);
   },
@@ -16,13 +16,13 @@ router.get(
 router
   .route('/')
   .get(
-    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
     (req: Request, res: Response, next: NextFunction) => {
       return ExpenseController.getExpenses(req, res, next);
     },
   )
   .post(
-    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
     fileUploadHandler().fields([
       { name: 'doc', maxCount: 1 },
       { name: 'image', maxCount: 1 },
@@ -35,7 +35,7 @@ router
 router
   .route('/:id')
   .patch(
-    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
     fileUploadHandler().fields([
       { name: 'doc', maxCount: 1 },
       { name: 'image', maxCount: 1 },
@@ -45,7 +45,7 @@ router
     },
   )
   .delete(
-    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
     (req: Request, res: Response, next: NextFunction) => {
       return ExpenseController.deleteExpense(req, res, next);
     },

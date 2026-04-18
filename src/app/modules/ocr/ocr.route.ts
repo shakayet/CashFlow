@@ -9,7 +9,7 @@ const router = express.Router();
 router
   .route('/analyze')
   .post(
-    auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+    auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
     upload.single('file'),
     OCRController.analyzeReceipt,
   );

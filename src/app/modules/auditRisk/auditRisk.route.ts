@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.get(
   '/',
-  auth(USER_ROLES.ADMIN, USER_ROLES.USER),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
   (req: Request, res: Response, next: NextFunction) => {
     return AuditRiskController.getAuditRiskCount(req, res, next);
   },

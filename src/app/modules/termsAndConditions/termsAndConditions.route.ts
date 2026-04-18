@@ -12,7 +12,7 @@ router.post(
   validateRequest(
     TermsAndConditionsValidation.createTermsAndConditionsZodSchema,
   ),
-  auth(USER_ROLES.ADMIN),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN),
   TermsAndConditionsController.createTermsAndConditions,
 );
 
@@ -25,13 +25,13 @@ router.patch(
   validateRequest(
     TermsAndConditionsValidation.updateTermsAndConditionsZodSchema,
   ),
-  auth(USER_ROLES.ADMIN),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN),
   TermsAndConditionsController.updateTermsAndConditions,
 );
 
 router.delete(
   '/:id',
-  auth(USER_ROLES.ADMIN),
+  auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN),
   TermsAndConditionsController.deleteTermsAndConditions,
 );
 
