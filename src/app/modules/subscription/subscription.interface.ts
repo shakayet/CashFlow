@@ -13,6 +13,10 @@ export enum SUBSCRIPTION_STATUS {
   ACTIVE = 'active',
   EXPIRED = 'expired',
   CANCELLED = 'cancelled',
+  REFUNDED = 'refunded',
+  REVOKED = 'revoked',
+  BILLING_RETRY = 'billing_retry',
+  GRACE_PERIOD = 'grace_period',
 }
 
 export enum PLATFORM {
@@ -30,8 +34,12 @@ export type ISubscription = {
   plan: SUBSCRIPTION_PLAN;
   billingCycle: BILLING_CYCLE;
   transactionId: string;
-  purchaseToken: string; // receipt/token
+  originalTransactionId: string;
+  productId: string;
+  environment: 'Sandbox' | 'Production';
   startDate: Date;
   expiryDate: Date;
+  revocationDate?: Date;
+  lastNotificationUUID?: string;
   status: SUBSCRIPTION_STATUS;
 };

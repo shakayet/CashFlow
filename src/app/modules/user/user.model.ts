@@ -52,6 +52,11 @@ const userSchema = new Schema<IUser, UserModal>(
       type: Date,
       default: null,
     },
+    isPremium: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     verified: {
       type: Boolean,
       default: false,

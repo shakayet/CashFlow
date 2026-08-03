@@ -12,7 +12,10 @@ import { PrivacyPolicyRoutes } from '../app/modules/privacyPolicy/privacyPolicy.
 import { NoticeRoutes } from '../app/modules/notices/notices.route';
 import { BankTransactionRoutes } from '../app/modules/bankTransaction/bankTransaction.route';
 import { ReportRoutes } from '../app/modules/report/report.route';
-import { SubscriptionRoutes } from '../app/modules/subscription/subscription.route';
+import {
+  AppleWebhookRoutes,
+  SubscriptionRoutes,
+} from '../app/modules/subscription/subscription.route';
 import { OCRRoutes } from '../app/modules/ocr/ocr.route';
 import { AdminRoutes } from '../app/modules/admin/admin.route';
 
@@ -78,6 +81,14 @@ const apiRoutes = [
   {
     path: '/subscriptions',
     route: SubscriptionRoutes,
+  },
+  {
+    path: '/subscription',
+    route: SubscriptionRoutes,
+  },
+  {
+    path: '/apple',
+    route: AppleWebhookRoutes,
   },
   {
     path: '/ocr',

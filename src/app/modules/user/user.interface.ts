@@ -15,6 +15,7 @@ export type IUser = {
   status: 'active' | 'block';
   plan: SUBSCRIPTION_PLAN;
   expireDate?: Date;
+  isPremium: boolean;
   verified: boolean;
   provider?: 'local' | 'google' | 'facebook' | 'github';
   providerId?: string;

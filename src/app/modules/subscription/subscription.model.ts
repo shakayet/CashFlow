@@ -30,8 +30,18 @@ const subscriptionSchema = new Schema<ISubscription>(
       unique: true, // Prevent duplicate transactions
       index: true,
     },
-    purchaseToken: {
+    originalTransactionId: {
       type: String,
+      required: true,
+      index: true,
+    },
+    productId: {
+      type: String,
+      required: true,
+    },
+    environment: {
+      type: String,
+      enum: ['Sandbox', 'Production'],
       required: true,
     },
     startDate: {
@@ -49,6 +59,8 @@ const subscriptionSchema = new Schema<ISubscription>(
       default: SUBSCRIPTION_STATUS.ACTIVE,
       index: true,
     },
+    revocationDate: Date,
+    lastNotificationUUID: String,
   },
   {
     timestamps: true,
@@ -58,7 +70,14 @@ const subscriptionSchema = new Schema<ISubscription>(
 
 // Virtual to check if subscription is currently valid based on expiry date
 subscriptionSchema.virtual('isValid').get(function () {
-  return this.status === SUBSCRIPTION_STATUS.ACTIVE && this.expiryDate > new Date();
+  return (
+    [SUBSCRIPTION_STATUS.ACTIVE, SUBSCRIPTION_STATUS.GRACE_PERIOD].includes(
+      this.status,
+    ) && this.expiryDate > new Date()
+  );
 });
 
-export const Subscription = model<ISubscription>('Subscription', subscriptionSchema);
+export const Subscription = model<ISubscription>(
+  'Subscription',
+  subscriptionSchema,
+);

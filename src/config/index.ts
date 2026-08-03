@@ -47,4 +47,14 @@ export default {
     },
     sessionSecret: process.env.SESSION_SECRET || 'your_session_secret_key',
   },
+  apple: {
+    issuerId: process.env.APPLE_ISSUER_ID,
+    keyId: process.env.APPLE_KEY_ID,
+    bundleId: process.env.APPLE_BUNDLE_ID,
+    appAppleId: process.env.APPLE_APP_ID,
+    privateKey: process.env.APPLE_PRIVATE_KEY,
+    privateKeyPath: process.env.APPLE_PRIVATE_KEY_PATH,
+    rootCertificatePaths: process.env.APPLE_ROOT_CERTIFICATE_PATHS,
+    productMap: process.env.APPLE_PRODUCT_MAP,
+  },
 };

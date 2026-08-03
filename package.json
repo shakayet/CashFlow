@@ -44,6 +44,7 @@
     "typescript": "^5.5.3"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "@aws-sdk/client-s3": "^3.990.0",
     "@aws-sdk/lib-storage": "^3.990.0",
     "bcrypt": "^6.0.0",

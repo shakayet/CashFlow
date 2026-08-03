@@ -1,73 +1,115 @@
+import {
+  Environment,
+  NotificationHistoryRequest,
+} from '@apple/app-store-server-library';
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
+import { JwtPayload } from 'jsonwebtoken';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { SubscriptionService } from './subscription.service';
-import { JwtPayload } from 'jsonwebtoken';
 
-const createSubscription = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user as JwtPayload;
-  const result = await SubscriptionService.createSubscriptionToDB(
-    user.id,
+const verifyPurchase = catchAsync(async (req: Request, res: Response) => {
+  const result = await SubscriptionService.verifyPurchase(
+    (req.user as JwtPayload).id,
     req.body,
   );
-
-  sendResponse(res, {
-    statusCode: StatusCodes.CREATED,
-    success: true,
-    message: 'Subscription purchased successfully',
-    data: result,
-  });
-});
-
-const getMySubscription = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user as JwtPayload;
-  const result = await SubscriptionService.getMySubscriptionFromDB(user.id);
-
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'My subscription retrieved successfully',
+    message: 'Apple subscription verified successfully',
     data: result,
   });
 });
 
-const getSubscriptionHistory = catchAsync(
-  async (req: Request, res: Response) => {
-    const user = req.user as JwtPayload;
-    const { result, pagination } =
-      await SubscriptionService.getSubscriptionHistoryFromDB(
-        user.id,
-        req.query,
-      );
+const getStatus = catchAsync(async (req: Request, res: Response) => {
+  const result = await SubscriptionService.getStatus(
+    (req.user as JwtPayload).id,
+  );
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Subscription status retrieved successfully',
+    data: result,
+  });
+});
 
-    sendResponse(res, {
-      statusCode: StatusCodes.OK,
-      success: true,
-      message: 'Subscription history retrieved successfully',
-      pagination,
-      data: result,
-    });
-  },
-);
+const restorePurchase = catchAsync(async (req: Request, res: Response) => {
+  const result = await SubscriptionService.restorePurchase(
+    (req.user as JwtPayload).id,
+    req.body.originalTransactionId,
+  );
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Apple subscription restored successfully',
+    data: result,
+  });
+});
 
-const checkSubscriptionStatus = catchAsync(
-  async (req: Request, res: Response) => {
-    const user = req.user as JwtPayload;
-    const result = await SubscriptionService.checkSubscriptionStatus(user.id);
+const getHistory = catchAsync(async (req: Request, res: Response) => {
+  const result = await SubscriptionService.getAppleHistory(
+    (req.user as JwtPayload).id,
+  );
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Apple subscription history retrieved successfully',
+    data: result,
+  });
+});
 
-    sendResponse(res, {
-      statusCode: StatusCodes.OK,
-      success: true,
-      message: 'Subscription status retrieved successfully',
-      data: result,
-    });
-  },
-);
+const webhook = catchAsync(async (req: Request, res: Response) => {
+  await SubscriptionService.processWebhook(req.body.signedPayload);
+  res.sendStatus(StatusCodes.OK);
+});
+
+const notificationTest = catchAsync(async (req: Request, res: Response) => {
+  const result = await SubscriptionService.requestNotificationTest(
+    req.body.environment as Environment,
+  );
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Apple test notification requested',
+    data: result,
+  });
+});
+
+const notificationHistory = catchAsync(async (req: Request, res: Response) => {
+  const { environment, paginationToken, ...historyRequest } = req.body;
+  const result = await SubscriptionService.getNotificationHistory(
+    environment as Environment,
+    historyRequest as NotificationHistoryRequest,
+    paginationToken || null,
+  );
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Apple notification history retrieved',
+    data: result,
+  });
+});
+
+const notificationDetails = catchAsync(async (req: Request, res: Response) => {
+  const result = await SubscriptionService.getNotificationDetails(
+    req.params.notificationId,
+  );
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Apple notification details retrieved',
+    data: result,
+  });
+});
 
 export const SubscriptionController = {
-  createSubscription,
-  getMySubscription,
-  getSubscriptionHistory,
-  checkSubscriptionStatus,
+  verifyPurchase,
+  getStatus,
+  restorePurchase,
+  getHistory,
+  webhook,
+  notificationTest,
+  notificationHistory,
+  notificationDetails,
 };
