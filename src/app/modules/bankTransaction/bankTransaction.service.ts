@@ -1,17 +1,25 @@
 import QueryBuilder from '../../../builder/QueryBuilder';
 import { IBankTransaction } from './bankTransaction.interface';
 import { BankTransaction } from './bankTransaction.model';
+import { JwtPayload } from 'jsonwebtoken';
 
 const createBankTransactionToDB = async (
-  payload: IBankTransaction,
+  user: JwtPayload,
+  payload: Omit<IBankTransaction, 'user'>,
 ): Promise<IBankTransaction> => {
-  const result = await BankTransaction.create(payload);
+  const result = await BankTransaction.create({ ...payload, user: user.id });
   return result;
 };
 
-const getAllBankTransactionsFromDB = async (query: Record<string, any>) => {
-  const bankTransactionQuery = new QueryBuilder(BankTransaction.find({}), query)
-    .search(['name', 'email', 'phone'])
+const getAllBankTransactionsFromDB = async (
+  user: JwtPayload,
+  query: Record<string, unknown>,
+) => {
+  const bankTransactionQuery = new QueryBuilder(
+    BankTransaction.find({ user: user.id }),
+    query,
+  )
+    .search(['bankName', 'accountNumberLast4Digits', 'refId'])
     .filter()
     .sort()
     .paginate();
@@ -26,17 +34,24 @@ const getAllBankTransactionsFromDB = async (query: Record<string, any>) => {
 };
 
 const updateBankTransactionToDB = async (
+  user: JwtPayload,
   id: string,
-  payload: Partial<IBankTransaction>,
+  payload: Partial<Omit<IBankTransaction, 'user'>>,
 ): Promise<IBankTransaction | null> => {
-  const result = await BankTransaction.findByIdAndUpdate(id, payload, {
-    new: true,
-  });
+  const result = await BankTransaction.findOneAndUpdate(
+    { _id: id, user: user.id },
+    payload,
+    { new: true, runValidators: true },
+  );
   return result;
 };
 
-const deleteBankTransactionToDB = async (id: string): Promise<void> => {
-  await BankTransaction.findByIdAndDelete(id);
+const deleteBankTransactionToDB = async (
+  user: JwtPayload,
+  id: string,
+): Promise<boolean> => {
+  const result = await BankTransaction.deleteOne({ _id: id, user: user.id });
+  return result.deletedCount === 1;
 };
 
 export const BankTransactionService = {

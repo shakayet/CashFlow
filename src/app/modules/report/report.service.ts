@@ -39,6 +39,18 @@ const getReportData = async (
   }
 
   const endDate = filters.endDate ? new Date(filters.endDate) : new Date();
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid report date range');
+  }
+  if (filters.endDate && /^\d{4}-\d{2}-\d{2}$/.test(filters.endDate)) {
+    endDate.setUTCHours(23, 59, 59, 999);
+  }
+  if (startDate > endDate) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Start date must be before or equal to end date',
+    );
+  }
 
   const userData = await User.findById(userId);
   if (!userData) {

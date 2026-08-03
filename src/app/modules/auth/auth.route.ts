@@ -37,7 +37,11 @@ router.post(
   AuthController.changePassword,
 );
 
-router.post('/resend-otp', auth(USER_ROLES.USER), AuthController.resendOtp);
+router.post(
+  '/resend-otp',
+  validateRequest(AuthValidation.createForgetPasswordZodSchema),
+  AuthController.resendOtp,
+);
 
 router.post(
   '/refresh-token',

@@ -15,7 +15,19 @@ app.use(Morgan.successHandler);
 app.use(Morgan.errorHandler);
 
 //body parser
-app.use(cors());
+app.use(
+  cors({
+    origin: ['*', 'https://cash-flow-sandy.vercel.app',"http://cash-flow-sandy.vercel.app", "http://localhost:3000"],
+  }),
+);
+
+// Handle Private Network Access preflight (CORS-RFC1918)
+// app.use((req, res, next) => {
+//   if (req.headers['access-control-request-private-network']) {
+//     res.setHeader('Access-Control-Allow-Private-Network', 'true');
+//   }
+//   next();
+// });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

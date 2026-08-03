@@ -3,6 +3,12 @@ import { IBankTransaction } from './bankTransaction.interface';
 
 const bankTransactionSchema = new Schema<IBankTransaction>(
   {
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
     amount: {
       type: Number,
       required: true,
@@ -18,7 +24,6 @@ const bankTransactionSchema = new Schema<IBankTransaction>(
     refId: {
       type: String,
       required: true,
-      unique: true,
     },
     date: {
       type: Date,
@@ -32,6 +37,8 @@ const bankTransactionSchema = new Schema<IBankTransaction>(
     },
   },
 );
+
+bankTransactionSchema.index({ user: 1, refId: 1 }, { unique: true });
 
 export const BankTransaction = model<IBankTransaction>(
   'BankTransaction',

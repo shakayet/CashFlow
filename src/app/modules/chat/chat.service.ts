@@ -21,7 +21,9 @@ const createChatRoom = async (user: JwtPayload) => {
   }
 
   // Find an admin to assign to the chat room
-  const adminUser = await User.findOne({ role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] } });
+  const adminUser = await User.findOne({
+    role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] },
+  });
 
   if (!adminUser) {
     throw new ApiError(
@@ -40,7 +42,10 @@ const createChatRoom = async (user: JwtPayload) => {
   if (global.io) {
     // Notify both user and admin about the new chat room
     // @ts-ignore
-    global.io.to(userId).to(adminUser._id.toString()).emit('chatRoomCreated', newChatRoom);
+    global.io
+      .to(userId)
+      .to(adminUser._id.toString())
+      .emit('chatRoomCreated', newChatRoom);
   }
 
   return newChatRoom;
@@ -66,7 +71,7 @@ const sendMessage = async (
   }
 
   // Ensure sender is a participant of the chat room
-  if (!chatRoom.participants.includes(senderId)) {
+  if (!chatRoom.participants.some(id => id.toString() === senderId)) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
       'You are not a participant of this chat room',
@@ -150,7 +155,7 @@ const getChatMessages = async (
   }
 
   // Ensure user is a participant of the chat room
-  if (!chatRoom.participants.includes(user.id)) {
+  if (!chatRoom.participants.some(id => id.toString() === user.id)) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
       'You are not a participant of this chat room',
@@ -184,7 +189,7 @@ const markMessagesAsRead = async (user: JwtPayload, chatRoomId: string) => {
   }
 
   // Ensure user is a participant of the chat room
-  if (!chatRoom.participants.includes(userId)) {
+  if (!chatRoom.participants.some(id => id.toString() === userId)) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
       'You are not a participant of this chat room',

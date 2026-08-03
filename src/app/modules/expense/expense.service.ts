@@ -40,15 +40,25 @@ const getExpenseFromDB = async (
   if (monthParam && yearParam) {
     const m = Number(monthParam);
     const y = Number(yearParam);
+    if (!Number.isInteger(m) || m < 1 || m > 12 || !Number.isInteger(y)) {
+      return {
+        mode: 'detailed',
+        data: [],
+        pagination: { page: 1, limit: 10, totalPage: 0, total: 0 },
+      };
+    }
     const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
-    const end = new Date(Date.UTC(y, m, 0, 23, 59, 59));
+    const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+    const databaseQuery = { ...query };
+    delete databaseQuery.month;
+    delete databaseQuery.year;
 
     const expenseQuery = new QueryBuilder(
       Expense.find({
         user: userId,
-        date: { $gte: start, $lte: end },
+        date: { $gte: start, $lt: end },
       }),
-      query,
+      databaseQuery,
     )
       .filter()
       .sort()

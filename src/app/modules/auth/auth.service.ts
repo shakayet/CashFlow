@@ -288,6 +288,8 @@ const refreshToken = async (token: string) => {
   const newRefreshToken = jwtHelper.createToken(
     {
       id: isUserExist._id,
+      role: isUserExist.role,
+      email: isUserExist.email,
     },
     config.jwt.jwt_refresh_secret as Secret,
     config.jwt.jwt_refresh_expire_in as string,

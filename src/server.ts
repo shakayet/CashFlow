@@ -36,7 +36,7 @@ async function main() {
     const io = new Server(server, {
       pingTimeout: 60000,
       cors: {
-        origin: '*',
+        origin: ['*', 'https://cash-flow-sandy.vercel.app'],
       },
     });
     socketHelper.socket(io);

@@ -3,10 +3,12 @@ import { StatusCodes } from 'http-status-codes';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { BankTransactionService } from './bankTransaction.service';
+import { JwtPayload } from 'jsonwebtoken';
 
 const createBankTransaction = catchAsync(
   async (req: Request, res: Response) => {
     const result = await BankTransactionService.createBankTransactionToDB(
+      req.user as JwtPayload,
       req.body,
     );
 
@@ -22,7 +24,10 @@ const createBankTransaction = catchAsync(
 const getAllBankTransactions = catchAsync(
   async (req: Request, res: Response) => {
     const { result, pagination } =
-      await BankTransactionService.getAllBankTransactionsFromDB(req.query);
+      await BankTransactionService.getAllBankTransactionsFromDB(
+        req.user as JwtPayload,
+        req.query,
+      );
 
     sendResponse(res, {
       success: true,
@@ -38,6 +43,7 @@ const updateBankTransaction = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
     const result = await BankTransactionService.updateBankTransactionToDB(
+      req.user as JwtPayload,
       id,
       req.body,
     );
@@ -54,7 +60,10 @@ const updateBankTransaction = catchAsync(
 const deleteBankTransaction = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    await BankTransactionService.deleteBankTransactionToDB(id);
+    await BankTransactionService.deleteBankTransactionToDB(
+      req.user as JwtPayload,
+      id,
+    );
 
     sendResponse(res, {
       success: true,
