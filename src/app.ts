@@ -17,7 +17,7 @@ app.use(Morgan.errorHandler);
 //body parser
 app.use(
   cors({
-    origin: ['*', 'https://cash-flow-sandy.vercel.app',"http://cash-flow-sandy.vercel.app", "http://localhost:3000"],
+    origin: config.cors_origins.includes('*') ? '*' : config.cors_origins,
   }),
 );
 
@@ -40,7 +40,7 @@ app.use(
     cookie: {
       secure: config.node_env === 'production',
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: Number(config.oauth.sessionMaxAgeMs),
     },
   }),
 );

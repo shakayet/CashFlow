@@ -2,13 +2,34 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config({ path: path.join(process.cwd(), '.env') });
+const envPath = path.join(process.cwd(), '.env');
+const envResult = dotenv.config({ path: envPath, override: true });
+if (envResult.error) {
+  throw new Error(`Unable to load environment file: ${envPath}`);
+}
+
+const commaSeparated = (value?: string) =>
+  value
+    ?.split(',')
+    .map(item => item.trim())
+    .filter(Boolean) || [];
+
+const requiredEnv = (name: string) => {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is not configured in ${envPath}`);
+  return value;
+};
 
 export default {
-  ip_address: process.env.IP_ADDRESS,
-  database_url: process.env.DATABASE_URL,
-  node_env: process.env.NODE_ENV,
-  port: process.env.PORT,
+  ip_address: requiredEnv('IP_ADDRESS'),
+  database_url: requiredEnv('DATABASE_URL'),
+  node_env: requiredEnv('NODE_ENV'),
+  port: requiredEnv('PORT'),
+  database_server_selection_timeout_ms: requiredEnv(
+    'DATABASE_SERVER_SELECTION_TIMEOUT_MS',
+  ),
+  cors_origins: commaSeparated(requiredEnv('CORS_ORIGINS')),
+  socket_ping_timeout_ms: requiredEnv('SOCKET_PING_TIMEOUT_MS'),
   bcrypt_salt_rounds: process.env.BCRYPT_SALT_ROUNDS,
   jwt: {
     jwt_secret: process.env.JWT_SECRET,
@@ -41,11 +62,10 @@ export default {
     google: {
       clientID: process.env.GOOGLE_OAUTH_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || '',
-      callbackURL:
-        process.env.GOOGLE_OAUTH_CALLBACK_URL ||
-        'http://localhost:5000/api/v1/oauth/google/callback',
+      callbackURL: requiredEnv('GOOGLE_OAUTH_CALLBACK_URL'),
     },
-    sessionSecret: process.env.SESSION_SECRET || 'your_session_secret_key',
+    sessionSecret: requiredEnv('SESSION_SECRET'),
+    sessionMaxAgeMs: requiredEnv('SESSION_MAX_AGE_MS'),
   },
   apple: {
     issuerId: process.env.APPLE_ISSUER_ID,
