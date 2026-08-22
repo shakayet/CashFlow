@@ -11,6 +11,12 @@ Purchase private key from App Store Connect and the Apple root certificates
 from Apple PKI. `APPLE_PRODUCT_MAP` is the allowlist that maps App Store product
 IDs to this application's existing plans and billing cycles.
 
+The public Apple root certificates used by `SignedDataVerifier` are stored in
+`certs/apple`. Development uses the Sandbox API directly. Production tries the
+Production API first and falls back to Sandbox only for a transaction-not-found
+response or a bare authorization response that is subsequently validated by
+Sandbox.
+
 Example:
 
 ```env

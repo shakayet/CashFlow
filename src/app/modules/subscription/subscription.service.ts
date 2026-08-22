@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Buffer } from 'buffer';
 import {
   Environment,
   GetTransactionHistoryVersion,
@@ -178,10 +179,15 @@ const verifyPurchase = async (
   const premium =
     subscription.status === SUBSCRIPTION_STATUS.ACTIVE &&
     subscription.expiryDate > new Date();
+  if (!premium) {
+    // A delayed verification may contain an earlier sandbox/renewal
+    // transaction. Refresh the subscription group before denying access.
+    return getStatus(userId);
+  }
   return { premium, expiresAt: subscription.expiryDate };
 };
 
-const getStatus = async (userId: string) => {
+async function getStatus(userId: string) {
   const stored = await Subscription.findOne({ user: userId })
     .sort({ expiryDate: -1 })
     .select('originalTransactionId environment expiryDate status');
@@ -234,7 +240,7 @@ const getStatus = async (userId: string) => {
       subscription.status,
     ) && subscription.expiryDate > new Date();
   return { premium, expiresAt: subscription.expiryDate };
-};
+}
 
 const fetchHistory = async (
   originalTransactionId: string,
