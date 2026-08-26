@@ -34,10 +34,18 @@ const expenseSchema = new Schema<IExpense, ExpenseModel>(
       type: String,
       default: null,
     },
+    fileName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   {
     timestamps: true,
   },
 );
+
+expenseSchema.index({ user: 1, date: -1 });
+expenseSchema.index({ user: 1, createdAt: -1 });
 
 export const Expense = model<IExpense, ExpenseModel>('Expense', expenseSchema);

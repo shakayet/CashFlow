@@ -61,12 +61,17 @@ const subscriptionSchema = new Schema<ISubscription>(
     },
     revocationDate: Date,
     lastNotificationUUID: String,
+    sourceSignedDate: Date,
+    lastVerifiedAt: { type: Date, default: Date.now },
   },
   {
     timestamps: true,
     toJSON: { virtuals: true },
   },
 );
+
+subscriptionSchema.index({ user: 1, expiryDate: -1 });
+subscriptionSchema.index({ originalTransactionId: 1, user: 1 });
 
 // Virtual to check if subscription is currently valid based on expiry date
 subscriptionSchema.virtual('isValid').get(function () {

@@ -10,6 +10,8 @@ import { ChatMessage } from './chatMessage.model';
 import { s3Uploader } from '../../../helpers/s3Uploader';
 import { compressImage, compressPdf } from '../../../helpers/fileProcessor';
 import QueryBuilder from '../../../builder/QueryBuilder';
+import mongoose from 'mongoose';
+import { errorLogger } from '../../../shared/logger';
 
 const createChatRoom = async (user: JwtPayload) => {
   const userId = user.id;
@@ -32,17 +34,21 @@ const createChatRoom = async (user: JwtPayload) => {
     );
   }
 
-  const newChatRoom = await ChatRoom.create({
-    participants: [userId, adminUser._id],
-    admin: adminUser._id,
-    user: userId,
-  });
+  const newChatRoom = await ChatRoom.findOneAndUpdate(
+    { user: userId },
+    {
+      $setOnInsert: {
+        participants: [userId, adminUser._id],
+        admin: adminUser._id,
+        user: userId,
+      },
+    },
+    { upsert: true, new: true, runValidators: true },
+  );
 
-  // @ts-ignore
-  if (global.io) {
+  if (globalThis.io) {
     // Notify both user and admin about the new chat room
-    // @ts-ignore
-    global.io
+    globalThis.io
       .to(userId)
       .to(adminUser._id.toString())
       .emit('chatRoomCreated', newChatRoom);
@@ -64,6 +70,34 @@ const sendMessage = async (
   const senderId = sender.id;
   const senderRole = sender.role;
 
+  if (!['text', 'image', 'pdf'].includes(messageType)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid message type');
+  }
+  if (messageType === 'text' && (!content || !content.trim())) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Text content is required');
+  }
+  if (content && content.length > 5000) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Message is too long');
+  }
+  if (messageType !== 'text' && !file) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Attachment is required');
+  }
+  if (file) {
+    if (file.size > 5 * 1024 * 1024 || file.buffer.length > 5 * 1024 * 1024) {
+      throw new ApiError(httpStatus.PAYLOAD_TOO_LARGE, 'Attachment is too large');
+    }
+    const validMime =
+      (messageType === 'image' &&
+        ['image/jpeg', 'image/png'].includes(file.mimetype)) ||
+      (messageType === 'pdf' && file.mimetype === 'application/pdf');
+    if (!validMime) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'Attachment type does not match message type',
+      );
+    }
+  }
+
   const chatRoom = await ChatRoom.findById(chatRoomId);
 
   if (!chatRoom) {
@@ -81,6 +115,7 @@ const sendMessage = async (
   let fileUrl: string | undefined;
   let fileName: string | undefined;
   let fileSize: number | undefined;
+  let fileKey: string | undefined;
 
   if (file) {
     let processedBuffer = file.buffer;
@@ -108,36 +143,65 @@ const sendMessage = async (
     }
 
     fileUrl = uploadResult.url;
+    fileKey = uploadResult.key;
     fileName = file.originalname;
     fileSize = processedBuffer.length; // Size of the compressed file
   }
 
-  const newMessage = await ChatMessage.create({
-    chatRoom: chatRoomId,
-    sender: senderId,
-    senderRole: senderRole,
-    messageType,
-    content: messageType === 'text' ? content : undefined,
-    fileUrl,
-    fileName,
-    fileSize,
-    readBy: [senderId], // Sender has read their own message
-  });
+  const session = await mongoose.startSession();
+  let newMessageId: mongoose.Types.ObjectId | undefined;
+  try {
+    await session.withTransaction(async () => {
+      const [newMessage] = await ChatMessage.create(
+        [
+          {
+            chatRoom: chatRoomId,
+            sender: senderId,
+            senderRole,
+            messageType,
+            content: messageType === 'text' ? content.trim() : undefined,
+            fileUrl,
+            fileKey,
+            fileName,
+            fileSize,
+            readBy: [senderId],
+          },
+        ],
+        { session },
+      );
+      newMessageId = newMessage._id;
+      const roomUpdate = await ChatRoom.updateOne(
+        { _id: chatRoomId, participants: senderId },
+        { $set: { lastMessage: newMessage._id } },
+        { session },
+      );
+      if (!roomUpdate.matchedCount) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Chat room access changed');
+      }
+    });
+  } catch (error) {
+    if (fileKey) {
+      await s3Uploader.deleteByKey(fileKey).catch(cleanupError => {
+        errorLogger.error('Failed to roll back chat attachment', cleanupError);
+      });
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
 
-  // Update last message in chat room
-  chatRoom.lastMessage = newMessage._id;
-  await chatRoom.save();
+  if (!newMessageId) {
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Message was not saved');
+  }
 
   // Populate sender info for the new message to match getChatMessages response
-  const populatedMessage = await ChatMessage.findById(newMessage._id).populate(
+  const populatedMessage = await ChatMessage.findById(newMessageId).populate(
     'sender',
     'name image avatar',
   );
 
-  // @ts-ignore
-  if (global.io) {
-    // @ts-ignore
-    global.io.to(chatRoomId).emit('newMessage', populatedMessage);
+  if (globalThis.io) {
+    globalThis.io.to(chatRoomId).emit('newMessage', populatedMessage);
   }
 
   return populatedMessage;
@@ -169,8 +233,8 @@ const getChatMessages = async (
     ),
     query,
   )
-    .filter()
-    .sort()
+    .filter(['messageType', 'senderRole'])
+    .sort(['createdAt'])
     .paginate();
 
   const result = await messageQuery.modelQuery;
@@ -208,10 +272,8 @@ const markMessagesAsRead = async (user: JwtPayload, chatRoomId: string) => {
     },
   );
 
-  // @ts-ignore
-  if (global.io) {
-    // @ts-ignore
-    global.io.to(chatRoomId).emit('messagesRead', { chatRoomId, userId });
+  if (globalThis.io) {
+    globalThis.io.to(chatRoomId).emit('messagesRead', { chatRoomId, userId });
   }
 
   return {
@@ -237,7 +299,7 @@ const getMyChatRooms = async (user: JwtPayload, query: Record<string, any>) => {
     query,
   )
     .filter()
-    .sort()
+    .sort(['createdAt'])
     .paginate();
 
   const result = await chatRoomQuery.modelQuery;

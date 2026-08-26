@@ -17,7 +17,18 @@ export const seedSuperAdmin = async () => {
     role: USER_ROLES.SUPER_ADMIN,
   });
   if (!isExistSuperAdmin) {
-    await User.create(payload);
+    try {
+      await User.create(payload);
+    } catch (error) {
+      if (
+        !error ||
+        typeof error !== 'object' ||
+        !('code' in error) ||
+        error.code !== 11000
+      ) {
+        throw error;
+      }
+    }
     logger.info('✨ Super Admin account has been successfully created!');
   }
 };

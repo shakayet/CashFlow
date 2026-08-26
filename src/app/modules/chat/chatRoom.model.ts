@@ -34,4 +34,7 @@ const ChatRoomSchema = new Schema<IChatRoom>(
   },
 );
 
+ChatRoomSchema.index({ user: 1 }, { unique: true });
+ChatRoomSchema.index({ participants: 1, createdAt: -1 });
+
 export const ChatRoom = model<IChatRoom>('ChatRoom', ChatRoomSchema);

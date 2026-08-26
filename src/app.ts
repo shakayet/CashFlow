@@ -1,7 +1,6 @@
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import session from 'express-session';
 import passport from 'passport';
 import { initializePassport } from './config/passport';
 import config from './config';
@@ -9,6 +8,10 @@ import globalErrorHandler from './app/middlewares/globalErrorHandler';
 import router from './routes';
 import { Morgan } from './shared/morgen';
 const app = express();
+
+if (config.node_env === 'production') {
+  app.set('trust proxy', 1);
+}
 
 //morgan
 app.use(Morgan.successHandler);
@@ -28,27 +31,12 @@ app.use(
 //   }
 //   next();
 // });
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-//session configuration for OAuth
-app.use(
-  session({
-    secret: config.oauth.sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: config.node_env === 'production',
-      httpOnly: true,
-      maxAge: Number(config.oauth.sessionMaxAgeMs),
-    },
-  }),
-);
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 //initialize Passport.js
 initializePassport();
 app.use(passport.initialize());
-app.use(passport.session());
 
 //file retrieve
 app.use(express.static('uploads'));

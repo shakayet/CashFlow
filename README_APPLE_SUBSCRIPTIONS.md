@@ -20,7 +20,7 @@ Sandbox.
 Example:
 
 ```env
-APPLE_PRODUCT_MAP={"premium_monthly":{"plan":"Pro-Professional","billingCycle":"monthly"}}
+APPLE_PRODUCT_MAP={"com.proProfessional.month":{"plan":"Pro-Professional","billingCycle":"monthly"},"com.proProfessional.yearly":{"plan":"Pro-Professional","billingCycle":"yearly"}}
 ```
 
 Never commit the `.p8` private key or production credentials.

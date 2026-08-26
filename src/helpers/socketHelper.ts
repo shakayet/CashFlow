@@ -11,6 +11,7 @@ import { ChatRoom } from '../app/modules/chat/chatRoom.model';
 // import { ChatMessage } from '../app/modules/chat/chatMessage.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { ChatService } from '../app/modules/chat/chat.service';
+import { User } from '../app/modules/user/user.model';
 
 const socket = (io: Server) => {
   io.use(async (socket: Socket, next) => {
@@ -27,7 +28,18 @@ const socket = (io: Server) => {
         token,
         config.jwt.jwt_secret as string,
       ) as JwtPayload;
-      socket.data.user = decoded;
+      const currentUser = await User.findById(decoded.id).select(
+        'role email status verified',
+      );
+      if (!currentUser || !currentUser.verified || currentUser.status !== 'active') {
+        return next(new Error('Authentication error: Account is not active'));
+      }
+      socket.data.user = {
+        ...decoded,
+        id: currentUser._id.toString(),
+        role: currentUser.role,
+        email: currentUser.email,
+      };
       next();
     } catch (error) {
       next(new Error('Authentication error: Invalid token'));
@@ -55,7 +67,10 @@ const socket = (io: Server) => {
 
         const chatRoom = await ChatRoom.findById(chatRoomId);
 
-        if (!chatRoom || !chatRoom.participants.includes(user.id)) {
+        if (
+          !chatRoom ||
+          !chatRoom.participants.some(id => id.toString() === user.id)
+        ) {
           socket.emit('roomError', 'You are not authorized to join this room.');
           return;
         }
@@ -73,46 +88,49 @@ const socket = (io: Server) => {
       'sendMessage',
       async (messagePayload: any) => {
         const user = socket.data.user;
-        let parsedPayload = messagePayload;
-        if (typeof messagePayload === 'string') {
-          try { parsedPayload = JSON.parse(messagePayload); } catch(e) {}
-        }
-        
-        const chatRoomId = typeof parsedPayload.chatRoomId === 'string' 
-          ? parsedPayload.chatRoomId 
-          : parsedPayload.chatRoomId?.chatRoomId || parsedPayload.chatRoomId?.id || parsedPayload.chatRoomId?.roomId || parsedPayload.chatRoomId?.room;
-        
-        const { messageType, content, file } = parsedPayload;
-
         try {
-          if (!chatRoomId || typeof chatRoomId !== 'string') {
-            socket.emit('messageError', 'Invalid chat room ID format.');
+          const parsedPayload =
+            typeof messagePayload === 'string'
+              ? JSON.parse(messagePayload)
+              : messagePayload;
+          if (!parsedPayload || typeof parsedPayload !== 'object') {
+            socket.emit('messageError', 'Invalid message format.');
             return;
           }
+          const roomPayload = parsedPayload.chatRoomId;
+          const chatRoomId =
+            typeof roomPayload === 'string'
+              ? roomPayload
+              : roomPayload?.chatRoomId ||
+                roomPayload?.id ||
+                roomPayload?.roomId ||
+                roomPayload?.room;
+          const { messageType, content, file } = parsedPayload;
 
-          const chatRoom = await ChatRoom.findById(chatRoomId);
-          if (!chatRoom || !chatRoom.participants.includes(user.id)) {
-            socket.emit(
-              'messageError',
-              'You are not authorized to send messages in this room.',
-            );
+          if (!chatRoomId || typeof chatRoomId !== 'string') {
+            socket.emit('messageError', 'Invalid chat room ID format.');
             return;
           }
 
           // Convert file object for ChatService.sendMessage
           let fileForService: Express.Multer.File | undefined;
           if (file) {
+            const buffer = Buffer.from(file.buffer);
+            if (buffer.length > 5 * 1024 * 1024) {
+              socket.emit('messageError', 'Attachment is too large.');
+              return;
+            }
             fileForService = {
-              buffer: Buffer.from(file.buffer), // Ensure it's a Buffer
+              buffer,
               originalname: file.originalname,
               mimetype: file.mimetype,
               fieldname: 'file',
               encoding: '7bit',
-              size: file.buffer.length,
+              size: buffer.length,
               destination: '',
               filename: file.originalname,
               path: '',
-              stream: require('stream').Readable.from(file.buffer),
+              stream: require('stream').Readable.from(buffer),
             };
           }
 

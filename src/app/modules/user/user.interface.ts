@@ -8,9 +8,11 @@ export type IUser = {
   name: string;
   role: USER_ROLES;
   contact: string;
+  location?: string;
   email: string;
-  password: string;
+  password: string | null;
   image?: string;
+  imageKey?: string;
   avatar?: string;
   status: 'active' | 'block';
   plan: SUBSCRIPTION_PLAN;
@@ -29,5 +31,5 @@ export type IUser = {
 export type UserModal = {
   isExistUserById(id: string): any;
   isExistUserByEmail(email: string): any;
-  isMatchPassword(password: string, hashPassword: string): boolean;
+  isMatchPassword(password: string, hashPassword: string): Promise<boolean>;
 } & Model<IUser>;

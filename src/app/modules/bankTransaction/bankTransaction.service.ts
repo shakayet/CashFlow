@@ -20,8 +20,8 @@ const getAllBankTransactionsFromDB = async (
     query,
   )
     .search(['bankName', 'accountNumberLast4Digits', 'refId'])
-    .filter()
-    .sort()
+    .filter(['bankName', 'accountNumberLast4Digits', 'refId', 'date'])
+    .sort(['createdAt', 'date', 'amount'])
     .paginate();
 
   const result = await bankTransactionQuery.modelQuery;

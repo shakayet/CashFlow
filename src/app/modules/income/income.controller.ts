@@ -5,7 +5,6 @@ import { NextFunction, Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
-import unlinkFile from '../../../shared/unlinkFile';
 import { s3Uploader } from '../../../helpers/s3Uploader';
 import { IncomeService } from './income.service';
 import { IncomeValidation } from './income.validation';
@@ -31,27 +30,37 @@ const createIncome = catchAsync(
     const imageFile = files?.image?.[0];
     const selectedFile = docFile || imageFile;
 
-    if (selectedFile?.path) {
-      const { url, key } = await s3Uploader.uploadFileToS3(
-        selectedFile.path as string,
+    if (selectedFile?.buffer) {
+      const { url, key } = await s3Uploader.uploadBufferToS3(
+        selectedFile.buffer,
+        selectedFile.originalname,
+        selectedFile.mimetype,
         'income',
       );
       fileUrl = url;
       fileKey = key;
-      const relative = docFile?.filename
-        ? `/doc/${docFile.filename}`
-        : `/image/${imageFile.filename}`;
-      unlinkFile(relative);
     }
 
-    const result = await IncomeService.createIncomeToDB(user, {
-      amount: Number(amount),
-      category,
-      date: new Date(date),
-      description,
-      fileUrl,
-      fileKey,
-    });
+    let result;
+    try {
+      result = await IncomeService.createIncomeToDB(user, {
+        amount: Number(amount),
+        category,
+        date: new Date(date),
+        description,
+        fileUrl,
+        fileKey,
+      });
+    } catch (error) {
+      if (fileKey) {
+        try {
+          await s3Uploader.deleteByKey(fileKey);
+        } catch {
+          // Preserve the database error; failed cleanup can be retried from logs.
+        }
+      }
+      throw error;
+    }
 
     sendResponse(res, {
       success: true,
@@ -95,17 +104,15 @@ const updateIncome = catchAsync(
     const docFile = files?.doc?.[0];
     const imageFile = files?.image?.[0];
     const selectedFile = docFile || imageFile;
-    if (selectedFile?.path) {
-      const { url, key } = await s3Uploader.uploadFileToS3(
-        selectedFile.path as string,
+    if (selectedFile?.buffer) {
+      const { url, key } = await s3Uploader.uploadBufferToS3(
+        selectedFile.buffer,
+        selectedFile.originalname,
+        selectedFile.mimetype,
         'income',
       );
       uploadUrl = url;
       uploadKey = key;
-      const relative = docFile?.filename
-        ? `/doc/${docFile.filename}`
-        : `/image/${imageFile.filename}`;
-      unlinkFile(relative);
     }
 
     const payload: any = { ...bodyData };
@@ -116,7 +123,27 @@ const updateIncome = catchAsync(
       payload.fileKey = uploadKey;
     }
 
-    const result = await IncomeService.updateIncomeToDB(user, id, payload);
+    let result;
+    try {
+      result = await IncomeService.updateIncomeToDB(user, id, payload);
+    } catch (error) {
+      if (uploadKey) {
+        try {
+          await s3Uploader.deleteByKey(uploadKey);
+        } catch {
+          // Preserve the database error; failed cleanup can be retried from logs.
+        }
+      }
+      throw error;
+    }
+
+    if (!result && uploadKey) {
+      try {
+        await s3Uploader.deleteByKey(uploadKey);
+      } catch {
+        // The missing record remains the authoritative result.
+      }
+    }
     sendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,

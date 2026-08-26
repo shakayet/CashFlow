@@ -1,9 +1,7 @@
 import bcrypt from 'bcrypt';
-import { StatusCodes } from 'http-status-codes';
 import { model, Schema } from 'mongoose';
 import config from '../../../config';
 import { USER_ROLES } from '../../../enums/user';
-import ApiError from '../../../errors/ApiError';
 import { IUser, UserModal } from './user.interface';
 import { SUBSCRIPTION_PLAN } from '../subscription/subscription.interface';
 
@@ -24,6 +22,16 @@ const userSchema = new Schema<IUser, UserModal>(
       unique: true,
       lowercase: true,
     },
+    contact: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    location: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     password: {
       type: String,
       select: 0,
@@ -33,6 +41,11 @@ const userSchema = new Schema<IUser, UserModal>(
     image: {
       type: String,
       default: 'https://i.ibb.co/z5YHLV9/profile.png',
+    },
+    imageKey: {
+      type: String,
+      default: null,
+      select: false,
     },
     avatar: {
       type: String,
@@ -69,6 +82,7 @@ const userSchema = new Schema<IUser, UserModal>(
     providerId: {
       type: String,
       default: null,
+      select: false,
     },
     authentication: {
       type: {
@@ -88,7 +102,20 @@ const userSchema = new Schema<IUser, UserModal>(
       select: 0,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    toJSON: {
+      transform: (_document, returned) => {
+        const safe = returned as Record<string, unknown>;
+        delete safe.password;
+        delete safe.authentication;
+        delete safe.providerId;
+        delete safe.imageKey;
+        delete safe.__v;
+        return returned;
+      },
+    },
+  },
 );
 
 //exist user check
@@ -110,16 +137,7 @@ userSchema.statics.isMatchPassword = async (
   return await bcrypt.compare(password, hashPassword);
 };
 
-//check user
 userSchema.pre('save', async function (next) {
-  //check user
-  if (this.isNew) {
-    const isExist = await User.findOne({ email: this.email });
-    if (isExist) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'Email already exist!');
-    }
-  }
-
   //password hash (only for local auth with password)
   if (this.password && this.isModified('password')) {
     this.password = await bcrypt.hash(

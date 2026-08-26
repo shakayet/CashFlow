@@ -4,7 +4,7 @@ import validateRequest from '../../middlewares/validateRequest';
 import { USER_ROLES } from '../../../enums/user';
 import { ChatController } from './chat.controller';
 import { ChatValidation } from './chat.validation';
-import { upload } from '../../../helpers/multer';
+import { chatUpload } from '../../../helpers/multer';
 
 const router = express.Router();
 
@@ -24,7 +24,7 @@ router.get(
 router.post(
   '/send-message/:chatRoomId',
   auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
-  upload.single('file'),
+  chatUpload.single('file'),
   (req, res, next) => {
     if (req.body.data) {
       const parsedData = JSON.parse(req.body.data);

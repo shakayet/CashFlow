@@ -40,8 +40,8 @@ const createNotice = async (
 
 const getAllNotices = async (query: Record<string, any>) => {
   const noticeQuery = new QueryBuilder(Notice.find({}), query)
-    .filter()
-    .sort()
+    .filter(['type'])
+    .sort(['createdAt', 'type'])
     .paginate();
 
   const result = await noticeQuery.modelQuery;

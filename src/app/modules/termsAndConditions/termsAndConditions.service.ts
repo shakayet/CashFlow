@@ -14,8 +14,8 @@ const createTermsAndConditions = async (
 
 const getAllTermsAndConditions = async (query: Record<string, any>) => {
   const termsQuery = new QueryBuilder(TermsAndConditions.find({}), query)
-    .filter()
-    .sort()
+    .filter(['title'])
+    .sort(['createdAt', 'title'])
     .paginate();
 
   const result = await termsQuery.modelQuery;

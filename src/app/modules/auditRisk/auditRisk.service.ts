@@ -5,15 +5,14 @@ import { Expense } from '../expense/expense.model';
 const getAuditRiskCountFromDB = async (user: JwtPayload) => {
   const userId = user.id;
 
-  const incomeRiskyRecords = await Income.countDocuments({
+  const missingFileFilter = {
     user: userId,
     $or: [{ fileUrl: { $exists: false } }, { fileUrl: null }, { fileUrl: '' }],
-  });
-
-  const expenseRiskyRecords = await Expense.countDocuments({
-    user: userId,
-    $or: [{ fileUrl: { $exists: false } }, { fileUrl: null }, { fileUrl: '' }],
-  });
+  };
+  const [incomeRiskyRecords, expenseRiskyRecords] = await Promise.all([
+    Income.countDocuments(missingFileFilter),
+    Expense.countDocuments(missingFileFilter),
+  ]);
 
   const totalRiskyRecords = incomeRiskyRecords + expenseRiskyRecords;
 

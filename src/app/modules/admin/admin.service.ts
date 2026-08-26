@@ -12,24 +12,15 @@ import { IUser } from '../user/user.interface';
 import { IDashboardData } from './admin.interface';
 import QueryBuilder from '../../../builder/QueryBuilder';
 
-import { ChatRoom } from '../chat/chatRoom.model';
-import { ChatMessage } from '../chat/chatMessage.model';
-import { Income } from '../income/income.model';
-import { Expense } from '../expense/expense.model';
 import ApiError from '../../../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
-
-const PLAN_PRICES = {
-  [SUBSCRIPTION_PLAN.BASIC_GROWTH]: { monthly: 29, yearly: 299 },
-  [SUBSCRIPTION_PLAN.PRO_PROFESSIONAL]: { monthly: 59, yearly: 599 },
-  [SUBSCRIPTION_PLAN.ELITE_POWER_USER]: { monthly: 99, yearly: 999 },
-  [SUBSCRIPTION_PLAN.SHIELD_AUDIT_DEFENSE]: { monthly: 149, yearly: 1499 },
-  [SUBSCRIPTION_PLAN.FREE]: { monthly: 0, yearly: 0 },
-};
+import { JwtPayload } from 'jsonwebtoken';
+import { USER_ROLES } from '../../../enums/user';
+import { deleteUserAccountData } from '../user/accountCleanup.service';
 
 const getDashboardData = async (): Promise<IDashboardData> => {
   // 1. Total Revenue calculation using aggregation
-  const revenueAggregation = await Subscription.aggregate([
+  const revenuePromise = Subscription.aggregate([
     {
       $match: {
         status: SUBSCRIPTION_STATUS.ACTIVE,
@@ -97,14 +88,11 @@ const getDashboardData = async (): Promise<IDashboardData> => {
     },
   ]);
 
-  const totalRevenue =
-    revenueAggregation.length > 0 ? revenueAggregation[0].totalRevenue : 0;
-
   // 2. Total Active Users (status: 'active')
-  const totalActiveUsers = await User.countDocuments({ status: 'active' });
+  const activeUsersPromise = User.countDocuments({ status: 'active' });
 
   // 3. Total Subscribers (users with active subscription)
-  const totalSubscribers = await User.countDocuments({
+  const subscribersPromise = User.countDocuments({
     plan: { $ne: SUBSCRIPTION_PLAN.FREE },
   });
 
@@ -112,13 +100,13 @@ const getDashboardData = async (): Promise<IDashboardData> => {
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-  const newSubscribersLast60Days = await Subscription.countDocuments({
+  const newSubscribersPromise = Subscription.countDocuments({
     createdAt: { $gte: sixtyDaysAgo },
     status: SUBSCRIPTION_STATUS.ACTIVE,
   });
 
   // 5. Subscription Distribution (Percentage)
-  const distributionAggregation = await User.aggregate([
+  const distributionPromise = User.aggregate([
     {
       $match: {
         plan: { $ne: SUBSCRIPTION_PLAN.FREE },
@@ -132,6 +120,21 @@ const getDashboardData = async (): Promise<IDashboardData> => {
     },
   ]);
 
+  const [
+    revenueAggregation,
+    totalActiveUsers,
+    totalSubscribers,
+    newSubscribersLast60Days,
+    distributionAggregation,
+  ] = await Promise.all([
+    revenuePromise,
+    activeUsersPromise,
+    subscribersPromise,
+    newSubscribersPromise,
+    distributionPromise,
+  ]);
+  const totalRevenue =
+    revenueAggregation.length > 0 ? revenueAggregation[0].totalRevenue : 0;
   const subscriptionDistribution = distributionAggregation.map(item => ({
     plan: item._id,
     count: item.count,
@@ -158,8 +161,8 @@ const getAllSubscribers = async (query: Record<string, any>) => {
 
   const subscriberQuery = new QueryBuilder(User.find(), queryObj)
     .search(['name', 'email'])
-    .filter()
-    .sort()
+    .filter(['status', 'verified'])
+    .sort(['createdAt', 'name', 'email'])
     .paginate();
 
   // Define all premium plans (excluding FREE)
@@ -268,35 +271,59 @@ const getMonthlyRevenue = async () => {
   return revenueByMonth;
 };
 
-const deleteAccount = async (userId: string) => {
-  const user = await User.findById(userId);
+const deleteAccount = async (actor: JwtPayload, userId: string) => {
+  const user = await User.findById(userId).select('role');
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
   }
-
-  // Delete all related data
-  await Promise.all([
-    User.findByIdAndDelete(userId),
-    Subscription.deleteMany({ user: userId }),
-    Income.deleteMany({ user: userId }),
-    Expense.deleteMany({ user: userId }),
-    ChatRoom.deleteMany({ participants: userId }),
-    ChatMessage.deleteMany({ sender: userId }),
-  ]);
+  if (
+    actor.role !== USER_ROLES.SUPER_ADMIN &&
+    user.role !== USER_ROLES.USER
+  ) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      'Only a super admin can delete this account',
+    );
+  }
+  await deleteUserAccountData(userId);
 
   return { message: 'Account and all related data deleted successfully' };
 };
 
-const updateUser = async (userId: string, payload: Partial<IUser>) => {
+const updateUser = async (
+  actor: JwtPayload,
+  userId: string,
+  payload: Partial<IUser>,
+) => {
   const isExist = await User.findById(userId);
   if (!isExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  // Prevent updating sensitive fields like email or password if necessary
-  // For now, let's allow general updates as per admin's requirement
-
-  const result = await User.findByIdAndUpdate(userId, payload, {
+  if (
+    actor.role !== USER_ROLES.SUPER_ADMIN &&
+    isExist.role !== USER_ROLES.USER
+  ) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      'Only a super admin can update this account',
+    );
+  }
+  if (payload.role && actor.role !== USER_ROLES.SUPER_ADMIN) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      'Only a super admin can change roles',
+    );
+  }
+  const update: Partial<IUser> = {};
+  for (const field of ['name', 'contact', 'location', 'status'] as const) {
+    const value = payload[field];
+    if (value !== undefined) update[field] = value as never;
+  }
+  if (payload.role && Object.values(USER_ROLES).includes(payload.role)) {
+    update.role = payload.role;
+  }
+  const result = await User.findByIdAndUpdate(userId, update, {
     new: true,
     runValidators: true,
   });

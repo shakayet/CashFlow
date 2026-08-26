@@ -8,6 +8,7 @@ export type IExpense = {
   description?: string;
   fileUrl?: string;
   fileKey?: string;
+  fileName?: string;
 };
 
 export type ExpenseModel = Model<IExpense>;

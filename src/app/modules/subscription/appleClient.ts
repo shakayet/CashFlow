@@ -21,18 +21,32 @@ const required = (value: string | undefined, name: string): string => {
   return value;
 };
 
+let cachedPrivateKey: string | undefined;
+let cachedRootCertificates: Buffer[] | undefined;
+const clients = new Map<Environment, AppStoreServerAPIClient>();
+const verifiers = new Map<Environment, SignedDataVerifier>();
+
 const readPrivateKey = () => {
+  if (cachedPrivateKey) return cachedPrivateKey;
   if (config.apple.privateKey) {
-    return config.apple.privateKey.replace(/\\n/g, '\n');
+    cachedPrivateKey = config.apple.privateKey.replace(/\\n/g, '\n');
+    return cachedPrivateKey;
   }
   const keyPath = required(config.apple.privateKeyPath, 'APPLE_PRIVATE_KEY');
-  return fs.readFileSync(path.resolve(keyPath), 'utf8');
+  cachedPrivateKey = fs.readFileSync(path.resolve(keyPath), 'utf8');
+  return cachedPrivateKey;
 };
 
-const rootCertificates = () =>
-  required(config.apple.rootCertificatePaths, 'APPLE_ROOT_CERTIFICATE_PATHS')
+const rootCertificates = () => {
+  if (cachedRootCertificates) return cachedRootCertificates;
+  cachedRootCertificates = required(
+    config.apple.rootCertificatePaths,
+    'APPLE_ROOT_CERTIFICATE_PATHS',
+  )
     .split(',')
     .map(file => fs.readFileSync(path.resolve(file.trim())));
+  return cachedRootCertificates;
+};
 
 const transactionResult = async (
   transactionId: string,
@@ -83,17 +97,24 @@ const throwAppleApiError = (error: unknown): never => {
   );
 };
 
-export const getAppleClient = (environment: Environment) =>
-  new AppStoreServerAPIClient(
+export const getAppleClient = (environment: Environment) => {
+  const cached = clients.get(environment);
+  if (cached) return cached;
+  const client = new AppStoreServerAPIClient(
     readPrivateKey(),
     required(config.apple.keyId, 'APPLE_KEY_ID'),
     required(config.apple.issuerId, 'APPLE_ISSUER_ID'),
     required(config.apple.bundleId, 'APPLE_BUNDLE_ID'),
     environment,
   );
+  clients.set(environment, client);
+  return client;
+};
 
-export const getAppleVerifier = (environment: Environment) =>
-  new SignedDataVerifier(
+export const getAppleVerifier = (environment: Environment) => {
+  const cached = verifiers.get(environment);
+  if (cached) return cached;
+  const verifier = new SignedDataVerifier(
     rootCertificates(),
     true,
     environment,
@@ -102,6 +123,9 @@ export const getAppleVerifier = (environment: Environment) =>
       ? Number(required(config.apple.appAppleId, 'APPLE_APP_ID'))
       : undefined,
   );
+  verifiers.set(environment, verifier);
+  return verifier;
+};
 
 export const getTransactionFromApple = async (transactionId: string) => {
   // Local development and StoreKit testing use Apple's sandbox directly.

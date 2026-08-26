@@ -41,5 +41,7 @@ export type ISubscription = {
   expiryDate: Date;
   revocationDate?: Date;
   lastNotificationUUID?: string;
+  sourceSignedDate?: Date;
+  lastVerifiedAt?: Date;
   status: SUBSCRIPTION_STATUS;
 };

@@ -12,8 +12,8 @@ const createPrivacyPolicy = async (
 
 const getAllPrivacyPolicies = async (query: Record<string, any>) => {
   const privacyPolicyQuery = new QueryBuilder(PrivacyPolicy.find({}), query)
-    .filter()
-    .sort()
+    .filter(['title'])
+    .sort(['createdAt', 'title'])
     .paginate();
 
   const result = await privacyPolicyQuery.modelQuery;

@@ -22,7 +22,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
   const { email, password } = payload;
   const isExistUser = await User.findOne({ email }).select('+password');
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid email or password');
   }
 
   //check verified and status
@@ -43,10 +43,11 @@ const loginUserFromDB = async (payload: ILoginData) => {
 
   //check match password
   if (
-    password &&
+    !password ||
+    !isExistUser.password ||
     !(await User.isMatchPassword(password, isExistUser.password))
   ) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid email or password');
   }
 
   //create access token
@@ -80,7 +81,7 @@ const forgetPasswordToDB = async (email: string) => {
     email: isExistUser.email,
   };
   const forgetPassword = emailTemplate.resetPasswordModern(value);
-  emailHelper.sendEmail(forgetPassword);
+  await emailHelper.sendEmail(forgetPassword);
 
   //save to DB
   const authentication = {
@@ -159,7 +160,13 @@ const resetPasswordToDB = async (
 ) => {
   const { newPassword, confirmPassword } = payload;
   //isExist token
-  const isExistToken = await ResetToken.isExistToken(token);
+  if (!token) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'You are not authorized');
+  }
+  const isExistToken = await ResetToken.findOne({
+    token,
+    expireAt: { $gt: new Date() },
+  });
   if (!isExistToken) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, 'You are not authorized');
   }
@@ -172,15 +179,6 @@ const resetPasswordToDB = async (
     throw new ApiError(
       StatusCodes.UNAUTHORIZED,
       "You don't have permission to change the password. Please click again to 'Forgot Password'",
-    );
-  }
-
-  //validity check
-  const isValid = await ResetToken.isExpireToken(token);
-  if (!isValid) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Token expired, Please click again to the forget password',
     );
   }
 
@@ -207,6 +205,7 @@ const resetPasswordToDB = async (
   await User.findOneAndUpdate({ _id: isExistToken.user }, updateData, {
     new: true,
   });
+  await ResetToken.deleteMany({ user: isExistToken.user });
 };
 
 const changePasswordToDB = async (
@@ -221,7 +220,8 @@ const changePasswordToDB = async (
 
   //current password match
   if (
-    currentPassword &&
+    !currentPassword ||
+    !isExistUser.password ||
     !(await User.isMatchPassword(currentPassword, isExistUser.password))
   ) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect');
@@ -272,6 +272,9 @@ const refreshToken = async (token: string) => {
   const isUserExist = await User.isExistUserByEmail(email);
   if (!isUserExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exists");
+  }
+  if (!isUserExist.verified || isUserExist.status !== 'active') {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'Account is not active');
   }
 
   // generate new token
@@ -325,7 +328,7 @@ const resendOtpToDB = async (email: string) => {
   };
 
   const resendTemplate = emailTemplate.createAccountModern(values);
-  emailHelper.sendEmail(resendTemplate);
+  await emailHelper.sendEmail(resendTemplate);
 
   //save otp to DB
   const authentication = {

@@ -10,14 +10,19 @@ const resetTokenSchema = new Schema<IResetToken, ResetTokenModel>(
     token: {
       type: String,
       required: true,
+      unique: true,
+      index: true,
     },
     expireAt: {
       type: Date,
       required: true,
+      index: true,
     },
   },
   { timestamps: true },
 );
+
+resetTokenSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 
 //token check
 resetTokenSchema.statics.isExistToken = async (

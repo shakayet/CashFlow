@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 /* eslint-disable no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-undef */
@@ -9,41 +8,59 @@ import { USER_ROLES } from '../../../enums/user';
 import ApiError from '../../../errors/ApiError';
 import { emailHelper } from '../../../helpers/emailHelper';
 import { emailTemplate } from '../../../shared/emailTemplate';
-import unlinkFile from '../../../shared/unlinkFile';
 import generateOTP from '../../../util/generateOTP';
 import { IUser } from './user.interface';
 import { User } from './user.model';
 import { s3Uploader } from '../../../helpers/s3Uploader';
 import { compressImage } from '../../../helpers/fileProcessor';
-// import { compressImage } from '../../../helpers/fileProcessor';
+import { errorLogger } from '../../../shared/logger';
+import { deleteUserAccountData } from './accountCleanup.service';
 
-const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
-  //set role
-  payload.role = USER_ROLES.USER;
-  const createUser = await User.create(payload);
-  if (!createUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create user');
+const createUserToDB = async (
+  payload: Pick<IUser, 'name' | 'contact' | 'email' | 'password'>,
+): Promise<IUser> => {
+  const otp = generateOTP();
+  let createUser;
+  try {
+    createUser = await User.create({
+      name: payload.name,
+      contact: payload.contact,
+      email: payload.email,
+      password: payload.password,
+      role: USER_ROLES.USER,
+      authentication: {
+        isResetPassword: false,
+        oneTimeCode: otp,
+        expireAt: new Date(Date.now() + 3 * 60000),
+      },
+    });
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 11000
+    ) {
+      throw new ApiError(StatusCodes.CONFLICT, 'Email already exists');
+    }
+    throw error;
   }
 
-  //send email
-  const otp = generateOTP();
   const values = {
     name: createUser.name,
-    otp: otp,
+    otp,
     email: createUser.email!,
   };
   const createAccountTemplate = emailTemplate.createAccountModern(values);
-  emailHelper.sendEmail(createAccountTemplate);
-
-  //save to DB
-  const authentication = {
-    oneTimeCode: otp,
-    expireAt: new Date(Date.now() + 3 * 60000),
-  };
-  await User.findOneAndUpdate(
-    { _id: createUser._id },
-    { $set: { authentication } },
-  );
+  try {
+    await emailHelper.sendEmail(createAccountTemplate);
+  } catch (error) {
+    await User.deleteOne({ _id: createUser._id });
+    throw new ApiError(
+      StatusCodes.BAD_GATEWAY,
+      'Unable to send verification email. Please try again.',
+    );
+  }
 
   return createUser;
 };
@@ -62,14 +79,28 @@ const getUserProfileFromDB = async (
 
 const updateProfileToDB = async (
   user: JwtPayload,
-  payload: Partial<IUser> & { file?: Express.Multer.File },
+  payload: Pick<Partial<IUser>, 'name' | 'contact' | 'location'> & {
+    file?: Express.Multer.File;
+  },
 ): Promise<Partial<IUser | null>> => {
   const { id } = user;
-  const isExistUser = await User.isExistUserById(id);
+  const isExistUser = await User.findById(id).select('+imageKey');
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
+  const updateData: Pick<Partial<IUser>, 'name' | 'contact' | 'location' | 'image' | 'imageKey'> = {
+    name: payload.name,
+    contact: payload.contact,
+    location: payload.location,
+  };
+  Object.keys(updateData).forEach(key => {
+    if (updateData[key as keyof typeof updateData] === undefined) {
+      delete updateData[key as keyof typeof updateData];
+    }
+  });
+
+  let newImageKey: string | undefined;
   if (payload.file) {
     const { buffer, originalname, mimetype } = payload.file;
 
@@ -84,25 +115,11 @@ const updateProfileToDB = async (
         mimetype,
         'profile-pictures', // Custom key prefix for profile pictures
       );
-      payload.image = uploadResult.url; // Store S3 URL
-
-      // Delete old image from S3 if it exists
-      if (isExistUser.image && isExistUser.image.includes('s3.amazonaws.com')) {
-        try {
-          const oldKey = isExistUser.image.split('/').pop(); // Extract key from URL
-          if (oldKey) {
-            await s3Uploader.deleteByKey(`profile-pictures/${oldKey}`);
-          }
-        } catch (error) {
-          console.error('Error deleting old profile picture from S3:', error);
-          // Continue with the update even if old image deletion fails
-        }
-      }
+      updateData.image = uploadResult.url;
+      updateData.imageKey = uploadResult.key;
+      newImageKey = uploadResult.key;
     } catch (error) {
-      console.error(
-        'Error processing or uploading profile picture to S3:',
-        error,
-      );
+      errorLogger.error('Error processing or uploading profile picture', error);
       throw new ApiError(
         StatusCodes.INTERNAL_SERVER_ERROR,
         'Failed to process or upload profile picture.',
@@ -110,34 +127,32 @@ const updateProfileToDB = async (
     }
   }
 
-  // Remove the file object from payload before updating the database
-  delete payload.file;
+  let updateDoc;
+  try {
+    updateDoc = await User.findOneAndUpdate({ _id: id }, updateData, {
+      new: true,
+      runValidators: true,
+    });
+  } catch (error) {
+    if (newImageKey) await s3Uploader.deleteByKey(newImageKey).catch(() => undefined);
+    throw error;
+  }
 
-  const updateDoc = await User.findOneAndUpdate({ _id: id }, payload, {
-    new: true,
-  });
+  if (newImageKey && isExistUser.imageKey) {
+    await s3Uploader.deleteByKey(isExistUser.imageKey).catch(error => {
+      errorLogger.error('Failed to delete replaced profile picture', error);
+    });
+  }
 
   return updateDoc;
 };
 
 const deleteAccountFromDB = async (user: JwtPayload): Promise<IUser | null> => {
   const { id } = user;
-  const isExistUser = await User.isExistUserById(id);
-  if (!isExistUser) {
+  const deleted = await deleteUserAccountData(id);
+  if (!deleted) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
-  if (isExistUser.image && isExistUser.image.includes('s3.amazonaws.com')) {
-    try {
-      const oldKey = isExistUser.image.split('/').pop(); // Extract key from URL
-      if (oldKey) {
-        await s3Uploader.deleteByKey(`profile-pictures/${oldKey}`);
-      }
-    } catch (error) {
-      console.error('Error deleting old profile picture from S3:', error);
-      // Optionally, re-throw or handle the error more gracefully
-    }
-  }
-  const deleted = await User.findByIdAndDelete(id);
   return deleted;
 };
 
@@ -146,8 +161,8 @@ import QueryBuilder from '../../../builder/QueryBuilder';
 const getAllUsers = async (query: Record<string, any>) => {
   const userQuery = new QueryBuilder(User.find(), query)
     .search(['name', 'email'])
-    .filter()
-    .sort()
+    .filter(['role', 'status', 'plan', 'verified'])
+    .sort(['createdAt', 'name', 'email'])
     .paginate();
 
   const result = await userQuery.modelQuery;
@@ -157,9 +172,20 @@ const getAllUsers = async (query: Record<string, any>) => {
 };
 
 const updateUserStatusToDB = async (
+  actor: JwtPayload,
   id: string,
   status: 'active' | 'block',
 ): Promise<IUser | null> => {
+  const target = await User.findById(id).select('role');
+  if (!target) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+  if (
+    actor.role !== USER_ROLES.SUPER_ADMIN &&
+    target.role !== USER_ROLES.USER
+  ) {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'Only a super admin can update this account');
+  }
   const user = await User.findByIdAndUpdate(id, { status }, { new: true });
   if (!user) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");

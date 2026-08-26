@@ -30,6 +30,9 @@ const ChatMessageSchema = new Schema<IChatMessage>(
     fileUrl: {
       type: String,
     },
+    fileKey: {
+      type: String,
+    },
     fileName: {
       type: String,
     },
@@ -50,6 +53,9 @@ const ChatMessageSchema = new Schema<IChatMessage>(
     },
   },
 );
+
+ChatMessageSchema.index({ chatRoom: 1, createdAt: -1 });
+ChatMessageSchema.index({ sender: 1, createdAt: -1 });
 
 export const ChatMessage = model<IChatMessage>(
   'ChatMessage',

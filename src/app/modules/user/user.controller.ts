@@ -81,7 +81,11 @@ const getAllUsers = catchAsync(async (req: Request, res: Response) => {
 const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body as { status: 'active' | 'block' };
-  const result = await UserService.updateUserStatusToDB(id, status);
+  const result = await UserService.updateUserStatusToDB(
+    req.user as import('jsonwebtoken').JwtPayload,
+    id,
+    status,
+  );
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

@@ -7,6 +7,7 @@ import { s3Uploader } from '../../../helpers/s3Uploader';
 import { Types } from 'mongoose';
 
 import QueryBuilder from '../../../builder/QueryBuilder';
+import { errorLogger } from '../../../shared/logger';
 
 const createIncomeToDB = async (
   user: JwtPayload,
@@ -60,8 +61,8 @@ const getIncomeFromDB = async (
       }),
       databaseQuery,
     )
-      .filter()
-      .sort()
+      .filter(['category'])
+      .sort(['createdAt', 'date', 'amount'])
       .paginate();
 
     const result = await incomeQuery.modelQuery;
@@ -100,16 +101,7 @@ const updateIncomeToDB = async (
   if (!doc) {
     return null;
   }
-  if (
-    payload.fileUrl &&
-    payload.fileKey &&
-    doc.fileKey &&
-    doc.fileKey !== payload.fileKey
-  ) {
-    try {
-      await s3Uploader.deleteByKey(doc.fileKey);
-    } catch {}
-  }
+  const previousFileKey = doc.fileKey;
   if (payload.amount !== undefined) doc.amount = payload.amount;
   if (payload.category !== undefined) doc.category = payload.category;
   if (payload.date !== undefined) doc.date = payload.date as any;
@@ -117,6 +109,20 @@ const updateIncomeToDB = async (
   if (payload.fileUrl !== undefined) doc.fileUrl = payload.fileUrl;
   if (payload.fileKey !== undefined) doc.fileKey = payload.fileKey;
   await doc.save();
+
+  if (
+    payload.fileUrl &&
+    payload.fileKey &&
+    previousFileKey &&
+    previousFileKey !== payload.fileKey
+  ) {
+    try {
+      await s3Uploader.deleteByKey(previousFileKey);
+    } catch (error) {
+      errorLogger.error('Failed to delete replaced income attachment', error);
+    }
+  }
+
   return doc;
 };
 
@@ -125,12 +131,14 @@ const deleteIncomeFromDB = async (user: JwtPayload, id: string) => {
   if (!doc) {
     return null;
   }
+  await Income.deleteOne({ _id: id, user: user.id });
   if (doc.fileKey) {
     try {
       await s3Uploader.deleteByKey(doc.fileKey);
-    } catch {}
+    } catch (error) {
+      errorLogger.error('Failed to delete income attachment', error);
+    }
   }
-  await Income.deleteOne({ _id: id, user: user.id });
   return { id };
 };
 
@@ -140,8 +148,8 @@ const getIncomeHistoryFromDB = async (
 ) => {
   const userId = user.id;
   const incomeQuery = new QueryBuilder(Income.find({ user: userId }), query)
-    .filter()
-    .sort()
+    .filter(['category'])
+    .sort(['createdAt', 'date', 'amount'])
     .paginate();
 
   const result = await incomeQuery.modelQuery;

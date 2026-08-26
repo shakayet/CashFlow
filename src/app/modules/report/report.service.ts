@@ -57,8 +57,7 @@ const getReportData = async (
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  // Fetch Income Data
-  const incomeAggregation = await Income.aggregate([
+  const totalsPipeline = [
     {
       $match: {
         user: userId,
@@ -71,22 +70,10 @@ const getReportData = async (
         total: { $sum: '$amount' },
       },
     },
-  ]);
-
-  // Fetch Expense Data
-  const expenseAggregation = await Expense.aggregate([
-    {
-      $match: {
-        user: userId,
-        date: { $gte: startDate, $lte: endDate },
-      },
-    },
-    {
-      $group: {
-        _id: '$category',
-        total: { $sum: '$amount' },
-      },
-    },
+  ];
+  const [incomeAggregation, expenseAggregation] = await Promise.all([
+    Income.aggregate(totalsPipeline),
+    Expense.aggregate(totalsPipeline),
   ]);
 
   const totalIncome = incomeAggregation.reduce(

@@ -14,12 +14,13 @@ router
     auth(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.USER),
     fileUploadHandler().fields([{ name: 'image', maxCount: 1 }]),
     (req: Request, res: Response, next: NextFunction) => {
-      if (req.body.data) {
-        req.body = UserValidation.updateUserZodSchema.parse(
-          JSON.parse(req.body.data),
-        );
+      try {
+        const body = req.body.data ? JSON.parse(req.body.data) : req.body;
+        req.body = UserValidation.updateUserZodSchema.parse(body);
+        return UserController.updateProfile(req, res, next);
+      } catch (error) {
+        next(error);
       }
-      return UserController.updateProfile(req, res, next);
     },
   )
   .delete(

@@ -17,6 +17,7 @@ export type IChatMessage = {
   messageType: 'text' | 'image' | 'pdf';
   content?: string; // For text messages
   fileUrl?: string; // For image/pdf attachments
+  fileKey?: string;
   fileName?: string; // Original file name for attachments
   fileSize?: number; // Size of the file in bytes
   readBy: Types.ObjectId[]; // Users who have read this message

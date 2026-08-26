@@ -1,11 +1,14 @@
 /* eslint-disable no-undef */
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 
 const envPath = path.join(process.cwd(), '.env');
-const envResult = dotenv.config({ path: envPath, override: true });
-if (envResult.error) {
-  throw new Error(`Unable to load environment file: ${envPath}`);
+if (fs.existsSync(envPath)) {
+  const envResult = dotenv.config({ path: envPath });
+  if (envResult.error) {
+    throw new Error(`Unable to load environment file: ${envPath}`);
+  }
 }
 
 const commaSeparated = (value?: string) =>
@@ -16,7 +19,11 @@ const commaSeparated = (value?: string) =>
 
 const requiredEnv = (name: string) => {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} is not configured in ${envPath}`);
+  if (!value) {
+    throw new Error(
+      `${name} is not configured in the process environment or ${envPath}`,
+    );
+  }
   return value;
 };
 
@@ -76,5 +83,6 @@ export default {
     privateKeyPath: process.env.APPLE_PRIVATE_KEY_PATH,
     rootCertificatePaths: process.env.APPLE_ROOT_CERTIFICATE_PATHS,
     productMap: process.env.APPLE_PRODUCT_MAP,
+    statusCacheMs: process.env.APPLE_STATUS_CACHE_MS || '60000',
   },
 };

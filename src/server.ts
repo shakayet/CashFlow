@@ -7,29 +7,56 @@ import app from './app';
 import config from './config';
 import { seedSuperAdmin } from './DB/seedAdmin';
 import { socketHelper } from './helpers/socketHelper';
+import { shutdownOCRWorkers } from './helpers/ocr';
 import { errorLogger, logger } from './shared/logger';
 
 let server: HttpServer | undefined;
+let io: Server | undefined;
+let shuttingDown = false;
+
+const gracefulShutdown = async (signal: string, exitCode = 0) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info(`${signal} received; draining connections`);
+  const deadline = setTimeout(() => {
+    errorLogger.error('Graceful shutdown timed out');
+    process.exit(1);
+  }, 10_000);
+  deadline.unref();
+
+  try {
+    if (io) {
+      await new Promise<void>(resolve => io!.close(() => resolve()));
+      io = undefined;
+      globalThis.io = undefined;
+    }
+    if (server?.listening) {
+      await new Promise<void>((resolve, reject) => {
+        server!.close(error => (error ? reject(error) : resolve()));
+      });
+    }
+    await shutdownOCRWorkers();
+    await mongoose.disconnect();
+    clearTimeout(deadline);
+    process.exit(exitCode);
+  } catch (error) {
+    clearTimeout(deadline);
+    errorLogger.error('Graceful shutdown failed', error);
+    process.exit(1);
+  }
+};
 
 process.on('uncaughtException', error => {
   errorLogger.error('UncaughtException detected', error);
-  process.exit(1);
+  void gracefulShutdown('uncaughtException', 1);
 });
 
 process.on('unhandledRejection', error => {
   errorLogger.error('UnhandledRejection detected', error);
-  if (server) {
-    server.close(() => process.exit(1));
-    return;
-  }
-  process.exit(1);
+  void gracefulShutdown('unhandledRejection', 1);
 });
 
 async function main() {
-  if (!config.database_url) {
-    throw new Error('DATABASE_URL is not configured');
-  }
-
   const databaseTimeout = Number(config.database_server_selection_timeout_ms);
   if (!Number.isInteger(databaseTimeout) || databaseTimeout <= 0) {
     throw new Error(
@@ -37,24 +64,16 @@ async function main() {
     );
   }
 
-  // Do not announce success or query models until MongoDB has selected a server.
   await mongoose.connect(config.database_url, {
     serverSelectionTimeoutMS: databaseTimeout,
   });
-  logger.info(colors.green('🚀 Database connected successfully'));
+  logger.info(colors.green('Database connected successfully'));
 
   await seedSuperAdmin();
 
   const port = Number(config.port);
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error('PORT must be a positive integer');
-  }
-
-  if (!config.ip_address) {
-    throw new Error('IP_ADDRESS is not configured');
-  }
-  if (!config.cors_origins.length) {
-    throw new Error('CORS_ORIGINS is not configured');
   }
   const socketPingTimeout = Number(config.socket_ping_timeout_ms);
   if (!Number.isInteger(socketPingTimeout) || socketPingTimeout <= 0) {
@@ -66,27 +85,22 @@ async function main() {
     server!.once('listening', resolve);
     server!.once('error', reject);
   });
-  logger.info(colors.yellow(`♻️ Application listening on port:${port}`));
+  logger.info(colors.yellow(`Application listening on port:${port}`));
 
-  const io = new Server(server, {
+  io = new Server(server, {
     pingTimeout: socketPingTimeout,
     cors: {
       origin: config.cors_origins.includes('*') ? '*' : config.cors_origins,
     },
   });
   socketHelper.socket(io);
-  // @ts-expect-error Socket.IO is intentionally exposed to application services.
-  global.io = io;
+  globalThis.io = io;
 }
 
 main().catch(error => {
   errorLogger.error(colors.red('Failed to start application'), error);
-  process.exit(1);
+  void gracefulShutdown('startupFailure', 1);
 });
 
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received');
-  if (server) {
-    server.close(() => void mongoose.disconnect());
-  }
-});
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'));

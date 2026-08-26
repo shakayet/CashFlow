@@ -39,6 +39,8 @@ const bankTransactionSchema = new Schema<IBankTransaction>(
 );
 
 bankTransactionSchema.index({ user: 1, refId: 1 }, { unique: true });
+bankTransactionSchema.index({ user: 1, date: -1 });
+bankTransactionSchema.index({ user: 1, createdAt: -1 });
 
 export const BankTransaction = model<IBankTransaction>(
   'BankTransaction',

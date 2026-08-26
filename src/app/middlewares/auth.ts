@@ -4,6 +4,7 @@ import { Secret } from 'jsonwebtoken';
 import config from '../../config';
 import ApiError from '../../errors/ApiError';
 import { jwtHelper } from '../../helpers/jwtHelper';
+import { User } from '../modules/user/user.model';
 
 const auth =
   (...roles: string[]) =>
@@ -31,11 +32,23 @@ const auth =
         token,
         config.jwt.jwt_secret as Secret,
       );
-      //set user to header
-      req.user = verifyUser;
+      const currentUser = await User.findById(verifyUser.id).select(
+        'role email status verified',
+      );
+      if (!currentUser || !currentUser.verified || currentUser.status !== 'active') {
+        throw new ApiError(StatusCodes.UNAUTHORIZED, 'Account is not active');
+      }
+
+      // Use current database authorization state rather than stale JWT claims.
+      req.user = {
+        ...verifyUser,
+        id: currentUser._id.toString(),
+        role: currentUser.role,
+        email: currentUser.email,
+      };
 
       //guard user
-      if (roles.length && !roles.includes(verifyUser.role)) {
+      if (roles.length && !roles.includes(currentUser.role)) {
         throw new ApiError(
           StatusCodes.FORBIDDEN,
           "You don't have permission to access this api",

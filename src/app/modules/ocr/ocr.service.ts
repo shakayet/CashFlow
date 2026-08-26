@@ -1,6 +1,6 @@
 /* eslint-disable prefer-const */
 /* eslint-disable no-undef */
-import Tesseract from 'tesseract.js';
+import { recognizeImageText } from '../../../helpers/ocr';
 import {
   CATEGORY_KEYWORDS,
   EXPENSE_CATEGORIES,
@@ -15,11 +15,7 @@ const analyzeReceipt = async (
   if (typeof input === 'string') {
     rawText = input;
   } else {
-    // Perform OCR if buffer is provided
-    const {
-      data: { text },
-    } = await Tesseract.recognize(input, 'eng');
-    rawText = text;
+    rawText = await recognizeImageText(input);
   }
 
   const amount = extractAmount(rawText);

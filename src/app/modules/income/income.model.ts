@@ -40,4 +40,7 @@ const incomeSchema = new Schema<IIncome, IncomeModel>(
   },
 );
 
+incomeSchema.index({ user: 1, date: -1 });
+incomeSchema.index({ user: 1, createdAt: -1 });
+
 export const Income = model<IIncome, IncomeModel>('Income', incomeSchema);

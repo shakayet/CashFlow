@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { AdminService } from './admin.service';
+import { JwtPayload } from 'jsonwebtoken';
 
 const getDashboardData = catchAsync(async (req: Request, res: Response) => {
   const result = await AdminService.getDashboardData();
@@ -42,7 +43,7 @@ const getMonthlyRevenue = catchAsync(async (req: Request, res: Response) => {
 
 const deleteAccount = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await AdminService.deleteAccount(id);
+  const result = await AdminService.deleteAccount(req.user as JwtPayload, id);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -53,7 +54,11 @@ const deleteAccount = catchAsync(async (req: Request, res: Response) => {
 
 const updateUser = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await AdminService.updateUser(id, req.body);
+  const result = await AdminService.updateUser(
+    req.user as JwtPayload,
+    id,
+    req.body,
+  );
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,

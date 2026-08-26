@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
+import ApiError from '../../../errors/ApiError';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { ScanService } from './scan.service';
@@ -11,7 +12,7 @@ const extractAndCreateExpense = catchAsync(
     const file = req.file;
 
     if (!file) {
-      throw new Error('No file uploaded');
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'No file uploaded');
     }
 
     const result = await ScanService.extractAndCreateExpenseFromImage(

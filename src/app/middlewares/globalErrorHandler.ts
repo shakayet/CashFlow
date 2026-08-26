@@ -7,7 +7,7 @@ import handleZodError from '../../errors/handleZodError';
 import { errorLogger } from '../../shared/logger';
 import { IErrorMessage } from '../../types/errors.types';
 
-const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
+const globalErrorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (config.node_env === 'development') {
     errorLogger.info('🚨 globalErrorHandler ~~ ', error);
   } else {
@@ -28,9 +28,14 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
     statusCode = simplifiedError.statusCode;
     message = simplifiedError.message;
     errorMessages = simplifiedError.errorMessages;
-  } else if (error.name === 'TokenExpiredError') {
+  } else if (
+    error.name === 'TokenExpiredError' ||
+    error.name === 'JsonWebTokenError' ||
+    error.name === 'NotBeforeError'
+  ) {
     statusCode = StatusCodes.UNAUTHORIZED;
-    message = 'Session Expired';
+    message =
+      error.name === 'TokenExpiredError' ? 'Session Expired' : 'Invalid token';
     errorMessages = error?.message
       ? [
           {
@@ -52,8 +57,8 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
         ]
       : [];
   } else if (error instanceof Error) {
-    message = error.message;
-    errorMessages = error.message
+    message = config.node_env === 'production' ? message : error.message;
+    errorMessages = config.node_env !== 'production' && error.message
       ? [
           {
             path: '',

@@ -15,7 +15,7 @@ describe('Apple purchase verification flow', () => {
 
   it('persists only Apple-verified transaction fields and enables premium', async () => {
     config.apple.productMap = JSON.stringify({
-      premium_monthly: {
+      'com.proProfessional.month': {
         plan: SUBSCRIPTION_PLAN.PRO_PROFESSIONAL,
         billingCycle: BILLING_CYCLE.MONTHLY,
       },
@@ -28,7 +28,7 @@ describe('Apple purchase verification flow', () => {
       verifyAndDecodeTransaction: jest.fn().mockResolvedValue({
         transactionId: 'apple-transaction',
         originalTransactionId: 'apple-original',
-        productId: 'premium_monthly',
+        productId: 'com.proProfessional.month',
         bundleId: 'com.example.cashflow',
         purchaseDate: Date.now() - 1000,
         expiresDate: Date.now() + 86_400_000,
@@ -51,7 +51,7 @@ describe('Apple purchase verification flow', () => {
 
     const result = await SubscriptionService.verifyPurchase('user-1', {
       transactionId: 'apple-transaction',
-      productId: 'premium_monthly',
+      productId: 'com.proProfessional.month',
     });
 
     expect(result.premium).toBe(true);
@@ -61,7 +61,7 @@ describe('Apple purchase verification flow', () => {
         $set: expect.objectContaining({
           user: 'user-1',
           originalTransactionId: 'apple-original',
-          productId: 'premium_monthly',
+          productId: 'com.proProfessional.month',
           status: SUBSCRIPTION_STATUS.ACTIVE,
         }),
       }),

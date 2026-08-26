@@ -29,6 +29,7 @@ import {
   SUBSCRIPTION_STATUS,
 } from './subscription.interface';
 import { Subscription } from './subscription.model';
+import { SubscriptionOwnership } from './subscriptionOwnership.model';
 
 type ProductMapping = {
   plan: SUBSCRIPTION_PLAN;
@@ -91,23 +92,90 @@ const validateTransaction = (
   return mapping;
 };
 
+const isDuplicateKeyError = (error: unknown) =>
+  Boolean(
+    error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 11000,
+  );
+
+const claimSubscriptionOwnership = async (
+  userId: string | Types.ObjectId,
+  originalTransactionId: string,
+) => {
+  const recordedOwner = await Subscription.findOne({ originalTransactionId })
+    .sort({ createdAt: 1 })
+    .select('user');
+  if (recordedOwner && recordedOwner.user.toString() !== userId.toString()) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      'This Apple subscription belongs to another account',
+    );
+  }
+  try {
+    const ownership = await SubscriptionOwnership.findOneAndUpdate(
+      {
+        originalTransactionId,
+        $or: [{ user: userId }, { user: { $exists: false } }],
+      },
+      {
+        $setOnInsert: { originalTransactionId, user: userId },
+      },
+      { upsert: true, new: true, runValidators: true },
+    );
+    if (!ownership || ownership.user.toString() !== userId.toString()) {
+      throw new ApiError(
+        StatusCodes.CONFLICT,
+        'This Apple subscription belongs to another account',
+      );
+    }
+  } catch (error) {
+    if (isDuplicateKeyError(error)) {
+      throw new ApiError(
+        StatusCodes.CONFLICT,
+        'This Apple subscription belongs to another account',
+      );
+    }
+    throw error;
+  }
+};
+
+const synchronizeUserEntitlement = async (
+  userId: string | Types.ObjectId,
+) => {
+  const current = await Subscription.findOne({
+    user: userId,
+    status: {
+      $in: [SUBSCRIPTION_STATUS.ACTIVE, SUBSCRIPTION_STATUS.GRACE_PERIOD],
+    },
+    expiryDate: { $gt: new Date() },
+  })
+    .sort({ expiryDate: -1 })
+    .select('plan expiryDate');
+  const premium = Boolean(current);
+  await User.findByIdAndUpdate(userId, {
+    isPremium: premium,
+    plan: current?.plan || SUBSCRIPTION_PLAN.FREE,
+    expireDate: current?.expiryDate || null,
+  });
+  return { premium, expiresAt: current?.expiryDate || null };
+};
+
 const persistTransaction = async (
   userId: string | Types.ObjectId,
   transaction: JWSTransactionDecodedPayload,
   status?: SUBSCRIPTION_STATUS,
   notificationUUID?: string,
   accessExpiresDate?: number,
+  sourceSignedDate?: number,
+  synchronize = true,
 ) => {
   const mapping = validateTransaction(transaction);
-  const owner = await Subscription.findOne({
-    originalTransactionId: transaction.originalTransactionId,
-  }).select('user');
-  if (owner && owner.user.toString() !== userId.toString()) {
-    throw new ApiError(
-      StatusCodes.CONFLICT,
-      'This Apple subscription belongs to another account',
-    );
-  }
+  await claimSubscriptionOwnership(
+    userId,
+    transaction.originalTransactionId!,
+  );
 
   const computedStatus =
     status ||
@@ -120,37 +188,75 @@ const persistTransaction = async (
     Math.max(transaction.expiresDate!, accessExpiresDate || 0),
   );
 
-  const subscription = await Subscription.findOneAndUpdate(
-    { transactionId: transaction.transactionId },
+  const signedAt = new Date(
+    sourceSignedDate || transaction.signedDate || transaction.purchaseDate!,
+  );
+  const update = {
+    user: userId,
+    plan: mapping.plan,
+    billingCycle: mapping.billingCycle,
+    originalTransactionId: transaction.originalTransactionId,
+    productId: transaction.productId,
+    environment: transaction.environment,
+    startDate: new Date(transaction.purchaseDate!),
+    expiryDate: effectiveExpiry,
+    revocationDate: transaction.revocationDate
+      ? new Date(transaction.revocationDate)
+      : undefined,
+    status: computedStatus,
+    lastNotificationUUID: notificationUUID,
+    sourceSignedDate: signedAt,
+    lastVerifiedAt: new Date(),
+  };
+
+  let subscription = await Subscription.findOneAndUpdate(
     {
-      $set: {
-        user: userId,
-        plan: mapping.plan,
-        billingCycle: mapping.billingCycle,
-        originalTransactionId: transaction.originalTransactionId,
-        productId: transaction.productId,
-        environment: transaction.environment,
-        startDate: new Date(transaction.purchaseDate!),
-        expiryDate: effectiveExpiry,
-        revocationDate: transaction.revocationDate
-          ? new Date(transaction.revocationDate)
-          : undefined,
-        status: computedStatus,
-        lastNotificationUUID: notificationUUID,
-      },
+      transactionId: transaction.transactionId,
+      user: userId,
+      $or: [
+        { sourceSignedDate: { $exists: false } },
+        { sourceSignedDate: { $lte: signedAt } },
+      ],
     },
-    { upsert: true, new: true, runValidators: true },
+    { $set: update },
+    { new: true, runValidators: true },
   );
 
-  const premium =
-    [SUBSCRIPTION_STATUS.ACTIVE, SUBSCRIPTION_STATUS.GRACE_PERIOD].includes(
-      computedStatus,
-    ) && effectiveExpiry > new Date();
-  await User.findByIdAndUpdate(userId, {
-    isPremium: premium,
-    plan: premium ? mapping.plan : SUBSCRIPTION_PLAN.FREE,
-    expireDate: premium ? effectiveExpiry : null,
-  });
+  if (!subscription) {
+    const existing = await Subscription.findOne({
+      transactionId: transaction.transactionId,
+    });
+    if (existing) {
+      if (existing.user.toString() !== userId.toString()) {
+        throw new ApiError(
+          StatusCodes.CONFLICT,
+          'This Apple subscription belongs to another account',
+        );
+      }
+      subscription = existing;
+    } else {
+      try {
+        subscription = await Subscription.findOneAndUpdate(
+          { transactionId: transaction.transactionId, user: userId },
+          { $set: update },
+          { upsert: true, new: true, runValidators: true },
+        );
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) throw error;
+        subscription = await Subscription.findOne({
+          transactionId: transaction.transactionId,
+          user: userId,
+        });
+      }
+    }
+  }
+  if (!subscription) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      'Unable to persist Apple subscription transaction',
+    );
+  }
+  if (synchronize) await synchronizeUserEntitlement(userId);
   return subscription;
 };
 
@@ -190,8 +296,28 @@ const verifyPurchase = async (
 async function getStatus(userId: string) {
   const stored = await Subscription.findOne({ user: userId })
     .sort({ expiryDate: -1 })
-    .select('originalTransactionId environment expiryDate status');
+    .select(
+      'originalTransactionId environment expiryDate status lastVerifiedAt',
+    );
   if (!stored) return { premium: false, expiresAt: null };
+
+  const configuredCacheMs = Number(config.apple.statusCacheMs);
+  const statusCacheMs =
+    Number.isFinite(configuredCacheMs) && configuredCacheMs >= 0
+      ? Math.min(configuredCacheMs, 5 * 60_000)
+      : 60_000;
+  if (
+    stored.lastVerifiedAt &&
+    stored.lastVerifiedAt.getTime() > Date.now() - statusCacheMs
+  ) {
+    return {
+      premium:
+        [SUBSCRIPTION_STATUS.ACTIVE, SUBSCRIPTION_STATUS.GRACE_PERIOD].includes(
+          stored.status,
+        ) && stored.expiryDate > new Date(),
+      expiresAt: stored.expiryDate,
+    };
+  }
 
   const environment = stored.environment as Environment;
   const response = await getAppleClient(environment).getAllSubscriptionStatuses(
@@ -251,7 +377,15 @@ const fetchHistory = async (
   let revision: string | null = null;
   let hasMore = false;
   const transactions: JWSTransactionDecodedPayload[] = [];
+  const seenRevisions = new Set<string>();
+  let pages = 0;
   do {
+    if (++pages > 100) {
+      throw new ApiError(
+        StatusCodes.BAD_GATEWAY,
+        'Apple returned an unexpectedly large transaction history',
+      );
+    }
     const response = await client.getTransactionHistory(
       originalTransactionId,
       revision,
@@ -261,7 +395,15 @@ const fetchHistory = async (
     for (const signed of response.signedTransactions || []) {
       transactions.push(await verifier.verifyAndDecodeTransaction(signed));
     }
-    revision = response.revision || null;
+    const nextRevision = response.revision || null;
+    if (nextRevision && seenRevisions.has(nextRevision)) {
+      throw new ApiError(
+        StatusCodes.BAD_GATEWAY,
+        'Apple returned a repeated transaction history revision',
+      );
+    }
+    if (nextRevision) seenRevisions.add(nextRevision);
+    revision = nextRevision;
     hasMore = response.hasMore === true;
   } while (hasMore);
   return transactions;
@@ -281,8 +423,17 @@ const restorePurchase = async (
     );
   }
   for (const transaction of transactions) {
-    await persistTransaction(userId, transaction);
+    await persistTransaction(
+      userId,
+      transaction,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+    );
   }
+  await synchronizeUserEntitlement(userId);
   return getStatus(userId);
 };
 
@@ -296,8 +447,17 @@ const getAppleHistory = async (userId: string) => {
     subscription.environment as Environment,
   );
   for (const transaction of transactions) {
-    await persistTransaction(userId, transaction);
+    await persistTransaction(
+      userId,
+      transaction,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+    );
   }
+  await synchronizeUserEntitlement(userId);
   return transactions.map(transaction => ({
     purchaseDate: transaction.purchaseDate
       ? new Date(transaction.purchaseDate)
@@ -335,13 +495,6 @@ const processWebhook = async (signedPayload: string) => {
   if (!notification.notificationUUID) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Missing notification UUID');
   }
-  if (
-    await AppleNotification.exists({
-      notificationUUID: notification.notificationUUID,
-    })
-  ) {
-    return { duplicate: true };
-  }
   const signedTransaction = notification.data?.signedTransactionInfo;
   const transaction = signedTransaction
     ? await verifier.verifyAndDecodeTransaction(signedTransaction)
@@ -352,43 +505,66 @@ const processWebhook = async (signedPayload: string) => {
       )
     : undefined;
 
-  if (transaction?.originalTransactionId) {
-    const owner = await Subscription.findOne({
-      originalTransactionId: transaction.originalTransactionId,
-    }).select('user');
-    if (owner) {
-      let status = mapAppleStatus(notification.data?.status);
-      if (notification.notificationType === NotificationTypeV2.REFUND) {
-        status = SUBSCRIPTION_STATUS.REFUNDED;
-      } else if (notification.notificationType === NotificationTypeV2.REVOKE) {
-        status = SUBSCRIPTION_STATUS.REVOKED;
-      } else if (
-        notification.notificationType ===
-        NotificationTypeV2.GRACE_PERIOD_EXPIRED
-      ) {
-        status = SUBSCRIPTION_STATUS.EXPIRED;
-      }
-      await persistTransaction(
-        owner.user,
-        transaction,
-        status,
-        notification.notificationUUID,
-        renewal?.gracePeriodExpiresDate,
-      );
-    }
+  try {
+    await AppleNotification.create({
+      notificationUUID: notification.notificationUUID,
+      notificationType: notification.notificationType,
+      subtype: notification.subtype,
+      signedDate: notification.signedDate
+        ? new Date(notification.signedDate)
+        : undefined,
+      transactionId: transaction?.transactionId,
+      originalTransactionId: transaction?.originalTransactionId,
+      processedAt: null,
+    });
+  } catch (error) {
+    if (isDuplicateKeyError(error)) return { duplicate: true };
+    throw error;
   }
-  await AppleNotification.create({
-    notificationUUID: notification.notificationUUID,
-    notificationType: notification.notificationType,
-    subtype: notification.subtype,
-    signedDate: notification.signedDate
-      ? new Date(notification.signedDate)
-      : undefined,
-    transactionId: transaction?.transactionId,
-    originalTransactionId: transaction?.originalTransactionId,
-    processedAt: new Date(),
-  });
-  return { duplicate: false };
+
+  try {
+    if (transaction?.originalTransactionId) {
+      const owner = await SubscriptionOwnership.findOne({
+        originalTransactionId: transaction.originalTransactionId,
+      }).select('user');
+      if (owner) {
+        let status = mapAppleStatus(notification.data?.status);
+        if (notification.notificationType === NotificationTypeV2.REFUND) {
+          status = SUBSCRIPTION_STATUS.REFUNDED;
+        } else if (
+          notification.notificationType === NotificationTypeV2.REVOKE
+        ) {
+          status = SUBSCRIPTION_STATUS.REVOKED;
+        } else if (
+          notification.notificationType ===
+          NotificationTypeV2.GRACE_PERIOD_EXPIRED
+        ) {
+          status = SUBSCRIPTION_STATUS.EXPIRED;
+        }
+        await persistTransaction(
+          owner.user,
+          transaction,
+          status,
+          notification.notificationUUID,
+          renewal?.gracePeriodExpiresDate,
+          notification.signedDate,
+        );
+      }
+    }
+    await AppleNotification.updateOne(
+      { notificationUUID: notification.notificationUUID },
+      { $set: { processedAt: new Date() } },
+    );
+    return { duplicate: false };
+  } catch (error) {
+    // Release the idempotency reservation so Apple can safely retry a failed
+    // notification. Transaction persistence itself is idempotent.
+    await AppleNotification.deleteOne({
+      notificationUUID: notification.notificationUUID,
+      processedAt: null,
+    });
+    throw error;
+  }
 };
 
 const requestNotificationTest = (environment: Environment) =>
@@ -412,8 +588,8 @@ const getSubscriptionHistoryFromDB = async (
     Subscription.find({ user: userId }),
     query,
   )
-    .filter()
-    .sort()
+    .filter(['status', 'plan', 'billingCycle', 'productId', 'environment'])
+    .sort(['createdAt', 'startDate', 'expiryDate'])
     .paginate();
   return {
     result: await subscriptionQuery.modelQuery,
