@@ -8,6 +8,8 @@ export type IAppleNotification = {
   transactionId?: string;
   originalTransactionId?: string;
   processedAt?: Date | null;
+  processingStartedAt?: Date | null;
+  processingToken?: string;
 };
 
 const appleNotificationSchema = new Schema<IAppleNotification>(
@@ -19,6 +21,8 @@ const appleNotificationSchema = new Schema<IAppleNotification>(
     transactionId: String,
     originalTransactionId: String,
     processedAt: { type: Date, default: null },
+    processingStartedAt: { type: Date, default: null },
+    processingToken: String,
   },
   { timestamps: true },
 );

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import QueryBuilder from '../../../builder/QueryBuilder';
 import { IPrivacyPolicy } from './privacyPolicy.interface';
 import { PrivacyPolicy } from './privacyPolicy.model';
@@ -10,7 +9,7 @@ const createPrivacyPolicy = async (
   return result as IPrivacyPolicy | null;
 };
 
-const getAllPrivacyPolicies = async (query: Record<string, any>) => {
+const getAllPrivacyPolicies = async (query: Record<string, unknown>) => {
   const privacyPolicyQuery = new QueryBuilder(PrivacyPolicy.find({}), query)
     .filter(['title'])
     .sort(['createdAt', 'title'])

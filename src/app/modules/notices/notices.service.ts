@@ -38,7 +38,7 @@ const createNotice = async (
   return result;
 };
 
-const getAllNotices = async (query: Record<string, any>) => {
+const getAllNotices = async (query: Record<string, unknown>) => {
   const noticeQuery = new QueryBuilder(Notice.find({}), query)
     .filter(['type'])
     .sort(['createdAt', 'type'])

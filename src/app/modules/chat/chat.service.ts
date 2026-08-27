@@ -13,6 +13,19 @@ import QueryBuilder from '../../../builder/QueryBuilder';
 import mongoose from 'mongoose';
 import { errorLogger } from '../../../shared/logger';
 
+const isUnsupportedTransactionError = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false;
+  const code = 'code' in error ? error.code : undefined;
+  const codeName = 'codeName' in error ? error.codeName : undefined;
+  const message = 'message' in error ? String(error.message) : '';
+
+  return (
+    (code === 20 || codeName === 'IllegalOperation') &&
+    /transaction/i.test(message) &&
+    /(replica set|mongos|not supported|only allowed)/i.test(message)
+  );
+};
+
 const createChatRoom = async (user: JwtPayload) => {
   const userId = user.id;
 
@@ -73,8 +86,12 @@ const sendMessage = async (
   if (!['text', 'image', 'pdf'].includes(messageType)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid message type');
   }
-  if (messageType === 'text' && (!content || !content.trim())) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Text content is required');
+  let textContent: string | undefined;
+  if (messageType === 'text') {
+    if (!content || !content.trim()) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Text content is required');
+    }
+    textContent = content.trim();
   }
   if (content && content.length > 5000) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Message is too long');
@@ -84,7 +101,10 @@ const sendMessage = async (
   }
   if (file) {
     if (file.size > 5 * 1024 * 1024 || file.buffer.length > 5 * 1024 * 1024) {
-      throw new ApiError(httpStatus.PAYLOAD_TOO_LARGE, 'Attachment is too large');
+      throw new ApiError(
+        httpStatus.REQUEST_ENTITY_TOO_LARGE,
+        'Attachment is too large',
+      );
     }
     const validMime =
       (messageType === 'image' &&
@@ -148,37 +168,66 @@ const sendMessage = async (
     fileSize = processedBuffer.length; // Size of the compressed file
   }
 
-  const session = await mongoose.startSession();
   let newMessageId: mongoose.Types.ObjectId | undefined;
-  try {
-    await session.withTransaction(async () => {
-      const [newMessage] = await ChatMessage.create(
-        [
-          {
-            chatRoom: chatRoomId,
-            sender: senderId,
-            senderRole,
-            messageType,
-            content: messageType === 'text' ? content.trim() : undefined,
-            fileUrl,
-            fileKey,
-            fileName,
-            fileSize,
-            readBy: [senderId],
-          },
-        ],
-        { session },
-      );
-      newMessageId = newMessage._id;
+  let session: mongoose.ClientSession | undefined;
+  const messageData = {
+    chatRoom: chatRoomId,
+    sender: senderId,
+    senderRole,
+    messageType,
+    content: textContent,
+    fileUrl,
+    fileKey,
+    fileName,
+    fileSize,
+    readBy: [senderId],
+  };
+
+  const persistWithoutTransaction = async () => {
+    const [newMessage] = await ChatMessage.create([messageData]);
+    try {
       const roomUpdate = await ChatRoom.updateOne(
         { _id: chatRoomId, participants: senderId },
         { $set: { lastMessage: newMessage._id } },
-        { session },
       );
       if (!roomUpdate.matchedCount) {
         throw new ApiError(httpStatus.FORBIDDEN, 'Chat room access changed');
       }
-    });
+      return newMessage._id;
+    } catch (error) {
+      await ChatMessage.deleteOne({ _id: newMessage._id }).catch(
+        cleanupError => {
+          errorLogger.error(
+            'Failed to roll back chat message after room update failure',
+            cleanupError,
+          );
+        },
+      );
+      throw error;
+    }
+  };
+
+  try {
+    session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const [newMessage] = await ChatMessage.create([messageData], {
+          session,
+        });
+        newMessageId = newMessage._id;
+        const roomUpdate = await ChatRoom.updateOne(
+          { _id: chatRoomId, participants: senderId },
+          { $set: { lastMessage: newMessage._id } },
+          { session },
+        );
+        if (!roomUpdate.matchedCount) {
+          throw new ApiError(httpStatus.FORBIDDEN, 'Chat room access changed');
+        }
+      });
+    } catch (error) {
+      if (!isUnsupportedTransactionError(error)) throw error;
+      newMessageId = await persistWithoutTransaction();
+    }
   } catch (error) {
     if (fileKey) {
       await s3Uploader.deleteByKey(fileKey).catch(cleanupError => {
@@ -187,11 +236,16 @@ const sendMessage = async (
     }
     throw error;
   } finally {
-    await session.endSession();
+    await session?.endSession().catch(cleanupError => {
+      errorLogger.error('Failed to close chat database session', cleanupError);
+    });
   }
 
   if (!newMessageId) {
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Message was not saved');
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      'Message was not saved',
+    );
   }
 
   // Populate sender info for the new message to match getChatMessages response

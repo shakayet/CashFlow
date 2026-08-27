@@ -1,8 +1,8 @@
 type IFolderName = 'image' | 'media' | 'doc';
+type UploadedFiles = Partial<Record<IFolderName, Express.Multer.File[]>>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getSingleFilePath = (
-  files: any,
+  files: UploadedFiles | undefined,
   folderName: IFolderName,
 ): string | undefined => {
   const fileField = files?.[folderName];
@@ -13,14 +13,13 @@ export const getSingleFilePath = (
   return undefined;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getMultipleFilesPath = (
-  files: any,
+  files: UploadedFiles | undefined,
   folderName: IFolderName,
 ): string[] | undefined => {
   const folderFiles = files?.[folderName];
   if (folderFiles && Array.isArray(folderFiles)) {
-    return folderFiles.map((file: any) => `/${folderName}/${file.filename}`);
+    return folderFiles.map(file => `/${folderName}/${file.filename}`);
   }
 
   return undefined;

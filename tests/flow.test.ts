@@ -58,7 +58,7 @@ describe('cash-flow monthly detail flows', () => {
 
       expect(result.mode).toBe('detailed');
       expect(result.data).toHaveLength(1);
-      expect(harness.filters).toEqual([{}]);
+      expect(harness.filters).toEqual([]);
       expect(model.find).toHaveBeenCalledWith({
         user: '507f1f77bcf86cd799439011',
         date: {

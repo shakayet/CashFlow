@@ -35,7 +35,11 @@ const auth =
       const currentUser = await User.findById(verifyUser.id).select(
         'role email status verified',
       );
-      if (!currentUser || !currentUser.verified || currentUser.status !== 'active') {
+      if (
+        !currentUser ||
+        !currentUser.verified ||
+        currentUser.status !== 'active'
+      ) {
         throw new ApiError(StatusCodes.UNAUTHORIZED, 'Account is not active');
       }
 

@@ -79,7 +79,8 @@ function label(text, color = colors.blue) {
 }
 
 function code(value, language = 'JSON') {
-  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  const text =
+    typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   const lines = text.split('\n').length;
   const height = Math.max(44, lines * 11 + 24);
   ensureSpace(Math.min(height, 260));
@@ -222,7 +223,9 @@ paragraph(
   'Replace YOUR_API_HOST with the production or staging backend hostname. The legacy plural prefix /api/v1/subscriptions is also supported, but new Flutter code should use the singular path shown above.',
 );
 heading('Authentication', 2);
-paragraph('All four Flutter-facing subscription endpoints require an access JWT:');
+paragraph(
+  'All four Flutter-facing subscription endpoints require an access JWT:',
+);
 code(
   `Authorization: Bearer <accessToken>\nContent-Type: application/json`,
   'HTTP HEADERS',
@@ -238,10 +241,26 @@ bullet('Subscription screen needs renewal records: call GET /history.');
 bullet('On HTTP 401: refresh/login, then retry once.');
 
 heading('2. Endpoint summary');
-endpoint('POST', '/api/v1/subscription/verify', 'Verify a completed StoreKit purchase.');
-endpoint('GET', '/api/v1/subscription/status', 'Get current backend-verified premium access.');
-endpoint('POST', '/api/v1/subscription/restore', 'Restore subscription ownership and history.');
-endpoint('GET', '/api/v1/subscription/history', 'Get verified Apple transaction history.');
+endpoint(
+  'POST',
+  '/api/v1/subscription/verify',
+  'Verify a completed StoreKit purchase.',
+);
+endpoint(
+  'GET',
+  '/api/v1/subscription/status',
+  'Get current backend-verified premium access.',
+);
+endpoint(
+  'POST',
+  '/api/v1/subscription/restore',
+  'Restore subscription ownership and history.',
+);
+endpoint(
+  'GET',
+  '/api/v1/subscription/history',
+  'Get verified Apple transaction history.',
+);
 note(
   'Backend-only routes',
   '/api/v1/apple/webhook and /notifications/* are for Apple or administrators. The Flutter app must never call them.',
@@ -249,7 +268,11 @@ note(
 
 doc.addPage();
 heading('3. Verify purchase');
-endpoint('POST', '/api/v1/subscription/verify', 'Call immediately after StoreKit reports a verified purchase.');
+endpoint(
+  'POST',
+  '/api/v1/subscription/verify',
+  'Call immediately after StoreKit reports a verified purchase.',
+);
 heading('Request JSON', 2);
 code({
   transactionId: '100000123456789',
@@ -271,7 +294,9 @@ heading('Flutter behavior', 2);
 bullet('Set premium UI from data.premium.');
 bullet('Parse data.expiresAt as UTC using DateTime.parse(...).toUtc().');
 bullet('Persist only for UI caching; re-check /status on the next app launch.');
-bullet('Finish the StoreKit transaction after the backend verifies it successfully.');
+bullet(
+  'Finish the StoreKit transaction after the backend verifies it successfully.',
+);
 note(
   'Do not send extra fields',
   'The backend intentionally ignores client expiry, price, status, plan, environment, and purchase dates. Apple-signed values replace all client claims.',
@@ -279,7 +304,11 @@ note(
 );
 
 heading('4. Subscription status');
-endpoint('GET', '/api/v1/subscription/status', 'Call on launch, resume, login, and after purchase/restore.');
+endpoint(
+  'GET',
+  '/api/v1/subscription/status',
+  'Call on launch, resume, login, and after purchase/restore.',
+);
 heading('Request body', 2);
 paragraph('No body. Send the Authorization header only.');
 heading('Active success: 200 OK', 2);
@@ -303,7 +332,11 @@ paragraph(
 
 doc.addPage();
 heading('5. Restore purchases');
-endpoint('POST', '/api/v1/subscription/restore', 'Use from a user-initiated Restore Purchases action.');
+endpoint(
+  'POST',
+  '/api/v1/subscription/restore',
+  'Use from a user-initiated Restore Purchases action.',
+);
 heading('Request JSON', 2);
 code({ originalTransactionId: '100000123456789' });
 paragraph(
@@ -325,7 +358,11 @@ note(
 );
 
 heading('6. Subscription history');
-endpoint('GET', '/api/v1/subscription/history', 'Returns verified purchase and renewal transactions.');
+endpoint(
+  'GET',
+  '/api/v1/subscription/history',
+  'Returns verified purchase and renewal transactions.',
+);
 heading('Success: 200 OK', 2);
 code({
   success: true,
@@ -350,25 +387,34 @@ paragraph('All handled errors use this JSON structure:');
 code({
   success: false,
   message: 'Human-readable error summary',
-  errorMessages: [
-    { path: '', message: 'Detailed error message' },
-  ],
+  errorMessages: [{ path: '', message: 'Detailed error message' }],
 });
 heading('Important HTTP statuses', 2);
-bullet('400 Bad Request — missing/invalid JSON, wrong product ID, or unsupported product.');
-bullet('401 Unauthorized — missing, malformed, expired, or invalid access token.');
+bullet(
+  '400 Bad Request — missing/invalid JSON, wrong product ID, or unsupported product.',
+);
+bullet(
+  '401 Unauthorized — missing, malformed, expired, or invalid access token.',
+);
 bullet('403 Forbidden — authenticated role cannot use the route.');
 bullet('404 Not Found — no Apple purchase history was found during restore.');
 bullet('409 Conflict — Apple subscription belongs to another app account.');
 bullet('502 Bad Gateway — Apple returned incomplete or inconsistent data.');
-bullet('503 Service Unavailable — Apple backend credentials/product mapping are unavailable.');
-bullet('500 Internal Server Error — unexpected backend failure; show retry UI and log safely.');
+bullet(
+  '503 Service Unavailable — Apple backend credentials/product mapping are unavailable.',
+);
+bullet(
+  '500 Internal Server Error — unexpected backend failure; show retry UI and log safely.',
+);
 heading('Validation error example', 2);
 code({
   success: false,
   message: 'Validation Error',
   errorMessages: [
-    { path: 'transactionId', message: 'String must contain at least 1 character(s)' },
+    {
+      path: 'transactionId',
+      message: 'String must contain at least 1 character(s)',
+    },
   ],
 });
 heading('Recommended client policy', 2);
@@ -379,7 +425,9 @@ bullet('Do not display raw server stack traces or Apple payloads to users.');
 
 doc.addPage();
 heading('8. Flutter HTTP example');
-paragraph('Example using package:http. Adapt token storage and error classes to the app architecture.');
+paragraph(
+  'Example using package:http. Adapt token storage and error classes to the app architecture.',
+);
 code(
   `Future<Map<String, dynamic>> verifyApplePurchase({
   required String baseUrl,
@@ -435,9 +483,13 @@ heading('On app launch or resume', 2);
 bullet('If authenticated, call GET /status.');
 bullet('Show a neutral loading state while status is unknown.');
 bullet('Apply premium entitlements only when data.premium is true.');
-bullet('If offline, cached status may shape UI but must not authorize sensitive server features.');
+bullet(
+  'If offline, cached status may shape UI but must not authorize sensitive server features.',
+);
 heading('After StoreKit purchase', 2);
-bullet('Confirm the StoreKit result is locally verified by the StoreKit integration.');
+bullet(
+  'Confirm the StoreKit result is locally verified by the StoreKit integration.',
+);
 bullet('Send transactionId and productId to POST /verify.');
 bullet('When premium is true, finish/complete the StoreKit transaction.');
 bullet('Refresh premium-gated screens and optionally fetch /history.');
@@ -458,16 +510,26 @@ doc.addPage();
 heading('10. Flutter handoff checklist');
 bullet('Production and staging API base URLs are configured per build flavor.');
 bullet('Authorization uses the access token with the exact "Bearer " prefix.');
-bullet('Product IDs exactly match App Store Connect and backend APPLE_PRODUCT_MAP.');
-bullet('POST /verify runs after every successful StoreKit subscription purchase.');
+bullet(
+  'Product IDs exactly match App Store Connect and backend APPLE_PRODUCT_MAP.',
+);
+bullet(
+  'POST /verify runs after every successful StoreKit subscription purchase.',
+);
 bullet('GET /status runs on launch, resume, and after login.');
 bullet('Restore Purchases is visible and calls POST /restore.');
 bullet('All timestamps are parsed as UTC.');
 bullet('Premium false and expiresAt null are handled normally.');
-bullet('401 refreshes authentication once; 409 shows an account-linking message.');
+bullet(
+  '401 refreshes authentication once; 409 shows an account-linking message.',
+);
 bullet('Flutter never calls Apple webhook or admin notification endpoints.');
-bullet('No Apple private key, issuer ID, key ID, or server JWT is shipped in the app.');
-bullet('StoreKit transaction is finished only after successful backend verification.');
+bullet(
+  'No Apple private key, issuer ID, key ID, or server JWT is shipped in the app.',
+);
+bullet(
+  'StoreKit transaction is finished only after successful backend verification.',
+);
 note(
   'Backend contact information',
   'Before release, obtain the final API hostname and exact production product IDs from the backend team. Those deployment-specific values are intentionally not embedded in this document.',

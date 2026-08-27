@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Buffer } from 'buffer';
+import { randomUUID } from 'crypto';
 import {
   Environment,
   GetTransactionHistoryVersion,
@@ -35,6 +36,8 @@ type ProductMapping = {
   plan: SUBSCRIPTION_PLAN;
   billingCycle: BILLING_CYCLE;
 };
+
+const WEBHOOK_PROCESSING_LEASE_MS = 5 * 60_000;
 
 const productMappings = (): Record<string, ProductMapping> => {
   try {
@@ -95,9 +98,9 @@ const validateTransaction = (
 const isDuplicateKeyError = (error: unknown) =>
   Boolean(
     error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      error.code === 11000,
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 11000,
   );
 
 const claimSubscriptionOwnership = async (
@@ -141,9 +144,29 @@ const claimSubscriptionOwnership = async (
   }
 };
 
-const synchronizeUserEntitlement = async (
-  userId: string | Types.ObjectId,
-) => {
+const resolveSubscriptionOwner = async (originalTransactionId: string) => {
+  const recordedOwnership = await SubscriptionOwnership.findOne({
+    originalTransactionId,
+  }).select('user');
+  if (recordedOwnership) return recordedOwnership.user;
+
+  // Ownership rows were introduced after subscriptions were already in use.
+  // Lazily backfill from the earliest trusted transaction for existing users.
+  const legacySubscription = await Subscription.findOne({
+    originalTransactionId,
+  })
+    .sort({ createdAt: 1 })
+    .select('user');
+  if (!legacySubscription) return null;
+
+  await claimSubscriptionOwnership(
+    legacySubscription.user,
+    originalTransactionId,
+  );
+  return legacySubscription.user;
+};
+
+const synchronizeUserEntitlement = async (userId: string | Types.ObjectId) => {
   const current = await Subscription.findOne({
     user: userId,
     status: {
@@ -172,10 +195,7 @@ const persistTransaction = async (
   synchronize = true,
 ) => {
   const mapping = validateTransaction(transaction);
-  await claimSubscriptionOwnership(
-    userId,
-    transaction.originalTransactionId!,
-  );
+  await claimSubscriptionOwnership(userId, transaction.originalTransactionId!);
 
   const computedStatus =
     status ||
@@ -288,12 +308,12 @@ const verifyPurchase = async (
   if (!premium) {
     // A delayed verification may contain an earlier sandbox/renewal
     // transaction. Refresh the subscription group before denying access.
-    return getStatus(userId);
+    return getStatus(userId, true);
   }
   return { premium, expiresAt: subscription.expiryDate };
 };
 
-async function getStatus(userId: string) {
+async function getStatus(userId: string, forceRefresh = false) {
   const stored = await Subscription.findOne({ user: userId })
     .sort({ expiryDate: -1 })
     .select(
@@ -307,6 +327,7 @@ async function getStatus(userId: string) {
       ? Math.min(configuredCacheMs, 5 * 60_000)
       : 60_000;
   if (
+    !forceRefresh &&
     stored.lastVerifiedAt &&
     stored.lastVerifiedAt.getTime() > Date.now() - statusCacheMs
   ) {
@@ -505,28 +526,58 @@ const processWebhook = async (signedPayload: string) => {
       )
     : undefined;
 
+  const processingToken = randomUUID();
+  const processingStartedAt = new Date();
+  const expiredLeaseThreshold = new Date(
+    processingStartedAt.getTime() - WEBHOOK_PROCESSING_LEASE_MS,
+  );
+
   try {
-    await AppleNotification.create({
-      notificationUUID: notification.notificationUUID,
-      notificationType: notification.notificationType,
-      subtype: notification.subtype,
-      signedDate: notification.signedDate
-        ? new Date(notification.signedDate)
-        : undefined,
-      transactionId: transaction?.transactionId,
-      originalTransactionId: transaction?.originalTransactionId,
-      processedAt: null,
-    });
+    await AppleNotification.findOneAndUpdate(
+      {
+        notificationUUID: notification.notificationUUID,
+        processedAt: null,
+        $or: [
+          { processingStartedAt: { $exists: false } },
+          { processingStartedAt: null },
+          { processingStartedAt: { $lte: expiredLeaseThreshold } },
+        ],
+      },
+      {
+        $setOnInsert: {
+          notificationUUID: notification.notificationUUID,
+          notificationType: notification.notificationType,
+          subtype: notification.subtype,
+          signedDate: notification.signedDate
+            ? new Date(notification.signedDate)
+            : undefined,
+          transactionId: transaction?.transactionId,
+          originalTransactionId: transaction?.originalTransactionId,
+          processedAt: null,
+        },
+        $set: { processingStartedAt, processingToken },
+      },
+      { upsert: true, new: true, runValidators: true },
+    );
   } catch (error) {
-    if (isDuplicateKeyError(error)) return { duplicate: true };
+    if (isDuplicateKeyError(error)) {
+      const existing = await AppleNotification.findOne({
+        notificationUUID: notification.notificationUUID,
+      }).select('processedAt');
+      if (existing?.processedAt) return { duplicate: true };
+      throw new ApiError(
+        StatusCodes.SERVICE_UNAVAILABLE,
+        'Apple notification is already being processed',
+      );
+    }
     throw error;
   }
 
   try {
     if (transaction?.originalTransactionId) {
-      const owner = await SubscriptionOwnership.findOne({
-        originalTransactionId: transaction.originalTransactionId,
-      }).select('user');
+      const owner = await resolveSubscriptionOwner(
+        transaction.originalTransactionId,
+      );
       if (owner) {
         let status = mapAppleStatus(notification.data?.status);
         if (notification.notificationType === NotificationTypeV2.REFUND) {
@@ -542,7 +593,7 @@ const processWebhook = async (signedPayload: string) => {
           status = SUBSCRIPTION_STATUS.EXPIRED;
         }
         await persistTransaction(
-          owner.user,
+          owner,
           transaction,
           status,
           notification.notificationUUID,
@@ -551,18 +602,37 @@ const processWebhook = async (signedPayload: string) => {
         );
       }
     }
-    await AppleNotification.updateOne(
-      { notificationUUID: notification.notificationUUID },
-      { $set: { processedAt: new Date() } },
+    const completion = await AppleNotification.updateOne(
+      {
+        notificationUUID: notification.notificationUUID,
+        processingToken,
+        processedAt: null,
+      },
+      {
+        $set: { processedAt: new Date(), processingStartedAt: null },
+        $unset: { processingToken: 1 },
+      },
     );
+    if (!completion.matchedCount) {
+      throw new ApiError(
+        StatusCodes.SERVICE_UNAVAILABLE,
+        'Apple notification processing lease was lost',
+      );
+    }
     return { duplicate: false };
   } catch (error) {
-    // Release the idempotency reservation so Apple can safely retry a failed
-    // notification. Transaction persistence itself is idempotent.
-    await AppleNotification.deleteOne({
-      notificationUUID: notification.notificationUUID,
-      processedAt: null,
-    });
+    // Release only this worker's lease so Apple can safely retry immediately.
+    await AppleNotification.updateOne(
+      {
+        notificationUUID: notification.notificationUUID,
+        processingToken,
+        processedAt: null,
+      },
+      {
+        $set: { processingStartedAt: null },
+        $unset: { processingToken: 1 },
+      },
+    ).catch(() => undefined);
     throw error;
   }
 };

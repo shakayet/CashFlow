@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { Schema, model } from 'mongoose';
 import { IPrivacyPolicy } from './privacyPolicy.interface';
 
@@ -23,7 +22,7 @@ const PrivacyPolicySchema = new Schema<IPrivacyPolicy>(
   },
 );
 
-export const PrivacyPolicy = model<IPrivacyPolicy, IPrivacyPolicy>(
+export const PrivacyPolicy = model<IPrivacyPolicy>(
   'PrivacyPolicy',
   PrivacyPolicySchema,
 );

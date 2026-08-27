@@ -1,42 +1,102 @@
 /* eslint-disable no-undef, no-unused-vars */
 jest.mock('tesseract.js', () => ({
   __esModule: true,
-  default: { recognize: jest.fn() },
+  default: { createWorker: jest.fn() },
 }));
 
 import Tesseract from 'tesseract.js';
-import { OCR_CONCURRENCY_LIMIT, recognizeImageText } from '../src/helpers/ocr';
+import {
+  OCR_CONCURRENCY_LIMIT,
+  recognizeImageText,
+  shutdownOCRWorkers,
+} from '../src/helpers/ocr';
 
 const flushPromises = () => new Promise(resolve => setImmediate(resolve));
 
 describe('OCR concurrency limit', () => {
-  it('runs no more than the configured number of Tesseract jobs at once', async () => {
-    const resolvers: Array<(value: { data: { text: string } }) => void> = [];
-    (Tesseract.recognize as jest.Mock).mockImplementation(
-      () =>
-        new Promise(resolve => {
-          resolvers.push(resolve);
-        }),
-    );
+  afterEach(async () => {
+    await shutdownOCRWorkers();
+  });
 
-    const jobs = Array.from({ length: 4 }, (_, index) =>
+  it('reuses a bounded worker pool and terminates its workers on shutdown', async () => {
+    const pendingRecognitions: Array<
+      (value: { data: { text: string } }) => void
+    > = [];
+    let activeRecognitions = 0;
+    let peakActiveRecognitions = 0;
+
+    const workers = Array.from({ length: OCR_CONCURRENCY_LIMIT }, () => ({
+      recognize: jest.fn(
+        () =>
+          new Promise<{ data: { text: string } }>(resolve => {
+            activeRecognitions += 1;
+            peakActiveRecognitions = Math.max(
+              peakActiveRecognitions,
+              activeRecognitions,
+            );
+            pendingRecognitions.push(resolve);
+          }),
+      ),
+      terminate: jest.fn().mockResolvedValue(undefined),
+    }));
+    let nextWorker = 0;
+
+    (Tesseract.createWorker as jest.Mock).mockImplementation(async () => {
+      const worker = workers[nextWorker];
+      nextWorker += 1;
+      return worker;
+    });
+
+    const jobCount = OCR_CONCURRENCY_LIMIT + 2;
+    const jobs = Array.from({ length: jobCount }, (_, index) =>
       recognizeImageText(Buffer.from(String(index))),
     );
 
     await flushPromises();
-    expect(Tesseract.recognize).toHaveBeenCalledTimes(OCR_CONCURRENCY_LIMIT);
 
-    resolvers.shift()?.({ data: { text: 'first' } });
+    expect(Tesseract.createWorker).toHaveBeenCalledTimes(OCR_CONCURRENCY_LIMIT);
+    expect(Tesseract.createWorker).toHaveBeenCalledWith('eng');
+    expect(
+      workers.reduce(
+        (total, worker) => total + worker.recognize.mock.calls.length,
+        0,
+      ),
+    ).toBe(OCR_CONCURRENCY_LIMIT);
+    expect(activeRecognitions).toBe(OCR_CONCURRENCY_LIMIT);
+    expect(peakActiveRecognitions).toBe(OCR_CONCURRENCY_LIMIT);
+
+    const finishNextRecognition = (text: string) => {
+      const resolve = pendingRecognitions.shift();
+      expect(resolve).toBeDefined();
+      activeRecognitions -= 1;
+      resolve?.({ data: { text } });
+    };
+
+    finishNextRecognition('first');
     await flushPromises();
-    expect(Tesseract.recognize).toHaveBeenCalledTimes(
-      OCR_CONCURRENCY_LIMIT + 1,
-    );
 
-    while (resolvers.length > 0) {
-      resolvers.shift()?.({ data: { text: 'done' } });
+    expect(
+      workers.reduce(
+        (total, worker) => total + worker.recognize.mock.calls.length,
+        0,
+      ),
+    ).toBe(OCR_CONCURRENCY_LIMIT + 1);
+    expect(activeRecognitions).toBe(OCR_CONCURRENCY_LIMIT);
+    expect(peakActiveRecognitions).toBe(OCR_CONCURRENCY_LIMIT);
+
+    for (let completed = 1; completed < jobCount; completed += 1) {
+      finishNextRecognition(`result-${completed}`);
       await flushPromises();
     }
 
-    await expect(Promise.all(jobs)).resolves.toHaveLength(4);
+    await expect(Promise.all(jobs)).resolves.toHaveLength(jobCount);
+    expect(activeRecognitions).toBe(0);
+    expect(Tesseract.createWorker).toHaveBeenCalledTimes(OCR_CONCURRENCY_LIMIT);
+
+    await shutdownOCRWorkers();
+
+    workers.forEach(worker => {
+      expect(worker.terminate).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -58,14 +58,15 @@ const globalErrorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
       : [];
   } else if (error instanceof Error) {
     message = config.node_env === 'production' ? message : error.message;
-    errorMessages = config.node_env !== 'production' && error.message
-      ? [
-          {
-            path: '',
-            message: error?.message,
-          },
-        ]
-      : [];
+    errorMessages =
+      config.node_env !== 'production' && error.message
+        ? [
+            {
+              path: '',
+              message: error?.message,
+            },
+          ]
+        : [];
   }
 
   res.status(statusCode).json({

@@ -16,7 +16,6 @@ const resetTokenSchema = new Schema<IResetToken, ResetTokenModel>(
     expireAt: {
       type: Date,
       required: true,
-      index: true,
     },
   },
   { timestamps: true },

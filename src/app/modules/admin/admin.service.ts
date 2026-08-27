@@ -276,10 +276,7 @@ const deleteAccount = async (actor: JwtPayload, userId: string) => {
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
   }
-  if (
-    actor.role !== USER_ROLES.SUPER_ADMIN &&
-    user.role !== USER_ROLES.USER
-  ) {
+  if (actor.role !== USER_ROLES.SUPER_ADMIN && user.role !== USER_ROLES.USER) {
     throw new ApiError(
       StatusCodes.FORBIDDEN,
       'Only a super admin can delete this account',

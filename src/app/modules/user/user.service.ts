@@ -89,7 +89,10 @@ const updateProfileToDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  const updateData: Pick<Partial<IUser>, 'name' | 'contact' | 'location' | 'image' | 'imageKey'> = {
+  const updateData: Pick<
+    Partial<IUser>,
+    'name' | 'contact' | 'location' | 'image' | 'imageKey'
+  > = {
     name: payload.name,
     contact: payload.contact,
     location: payload.location,
@@ -134,7 +137,8 @@ const updateProfileToDB = async (
       runValidators: true,
     });
   } catch (error) {
-    if (newImageKey) await s3Uploader.deleteByKey(newImageKey).catch(() => undefined);
+    if (newImageKey)
+      await s3Uploader.deleteByKey(newImageKey).catch(() => undefined);
     throw error;
   }
 
@@ -184,7 +188,10 @@ const updateUserStatusToDB = async (
     actor.role !== USER_ROLES.SUPER_ADMIN &&
     target.role !== USER_ROLES.USER
   ) {
-    throw new ApiError(StatusCodes.FORBIDDEN, 'Only a super admin can update this account');
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      'Only a super admin can update this account',
+    );
   }
   const user = await User.findByIdAndUpdate(id, { status }, { new: true });
   if (!user) {

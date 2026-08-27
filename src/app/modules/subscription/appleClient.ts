@@ -52,9 +52,8 @@ const transactionResult = async (
   transactionId: string,
   environment: Environment,
 ) => {
-  const response = await getAppleClient(environment).getTransactionInfo(
-    transactionId,
-  );
+  const response =
+    await getAppleClient(environment).getTransactionInfo(transactionId);
   return {
     environment,
     signedTransactionInfo: response.signedTransactionInfo,
@@ -75,7 +74,10 @@ const throwAppleApiError = (error: unknown): never => {
     error.apiError === APIError.TRANSACTION_ID_NOT_FOUND ||
     error.httpStatusCode === StatusCodes.NOT_FOUND
   ) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Apple transaction was not found');
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      'Apple transaction was not found',
+    );
   }
 
   if (

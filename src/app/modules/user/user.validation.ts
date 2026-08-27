@@ -12,11 +12,13 @@ const createUserZodSchema = z.object({
   }),
 });
 
-const updateUserZodSchema = z.object({
-  name: z.string().trim().min(1).optional(),
-  contact: z.string().trim().min(1).optional(),
-  location: z.string().trim().max(200).optional(),
-}).strict();
+const updateUserZodSchema = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    contact: z.string().trim().min(1).optional(),
+    location: z.string().trim().max(200).optional(),
+  })
+  .strict();
 
 const updateUserStatusZodSchema = z.object({
   body: z.object({

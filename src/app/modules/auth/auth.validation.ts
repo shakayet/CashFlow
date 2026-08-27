@@ -33,32 +33,43 @@ const createResetPasswordZodSchema = z.object({
       .string({ required_error: 'Password is required' })
       .min(8)
       .max(128),
-    confirmPassword: z.string({
-      required_error: 'Confirm Password is required',
-    }).min(8).max(128),
+    confirmPassword: z
+      .string({
+        required_error: 'Confirm Password is required',
+      })
+      .min(8)
+      .max(128),
   }),
 });
 
 const createChangePasswordZodSchema = z.object({
   body: z.object({
-    currentPassword: z.string({
-      required_error: 'Current Password is required',
-    }).min(1).max(128),
+    currentPassword: z
+      .string({
+        required_error: 'Current Password is required',
+      })
+      .min(1)
+      .max(128),
     newPassword: z
       .string({ required_error: 'New Password is required' })
       .min(8)
       .max(128),
-    confirmPassword: z.string({
-      required_error: 'Confirm Password is required',
-    }).min(8).max(128),
+    confirmPassword: z
+      .string({
+        required_error: 'Confirm Password is required',
+      })
+      .min(8)
+      .max(128),
   }),
 });
 
 const createRefreshTokenZodSchema = z.object({
   body: z.object({
-    refreshToken: z.string({
-      required_error: 'Refresh token is required',
-    }).min(1),
+    refreshToken: z
+      .string({
+        required_error: 'Refresh token is required',
+      })
+      .min(1),
   }),
 });
 

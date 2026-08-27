@@ -11,7 +11,7 @@ export type StrategyConfig = {
   name: string;
   strategy: Strategy | null;
   enabled: boolean;
-}
+};
 
 // Register all available strategies
 const strategies: StrategyConfig[] = [
