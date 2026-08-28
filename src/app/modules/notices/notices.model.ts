@@ -12,11 +12,19 @@ const noticeSchema = new Schema<INotice>(
       type: String,
       required: true,
     },
+    documentKey: {
+      type: String,
+      select: false,
+    },
   },
   {
     timestamps: true,
     toJSON: {
       virtuals: true,
+      transform: (_document, returned) => {
+        delete (returned as Record<string, unknown>).documentKey;
+        return returned;
+      },
     },
   },
 );

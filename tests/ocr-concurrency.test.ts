@@ -55,7 +55,10 @@ describe('OCR concurrency limit', () => {
     await flushPromises();
 
     expect(Tesseract.createWorker).toHaveBeenCalledTimes(OCR_CONCURRENCY_LIMIT);
-    expect(Tesseract.createWorker).toHaveBeenCalledWith('eng');
+    expect(Tesseract.createWorker).toHaveBeenCalledWith('eng', undefined, {
+      langPath: expect.any(String),
+      gzip: false,
+    });
     expect(
       workers.reduce(
         (total, worker) => total + worker.recognize.mock.calls.length,

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { Express } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '../../../errors/ApiError';
@@ -7,6 +6,7 @@ import { INotice } from './notices.interface';
 import { Notice } from './notices.model';
 
 import QueryBuilder from '../../../builder/QueryBuilder';
+import { errorContext, errorLogger } from '../../../shared/logger';
 
 const createNotice = async (
   payload: Partial<INotice>,
@@ -18,6 +18,7 @@ const createNotice = async (
 
   const { buffer, originalname, mimetype } = file;
 
+  let uploadKey: string | undefined;
   try {
     const uploadResult = await s3Uploader.uploadBufferToS3(
       buffer,
@@ -25,17 +26,30 @@ const createNotice = async (
       mimetype,
       'notices',
     );
+    uploadKey = uploadResult.key;
     payload.document = uploadResult.url;
+    payload.documentKey = uploadResult.key;
   } catch (error) {
-    console.error('Error uploading notice to S3:', error);
+    errorLogger.error('Notice upload failed', errorContext(error));
     throw new ApiError(
       StatusCodes.INTERNAL_SERVER_ERROR,
       'Failed to upload notice.',
     );
   }
 
-  const result = await Notice.create(payload);
-  return result;
+  try {
+    return await Notice.create(payload);
+  } catch (error) {
+    if (uploadKey) {
+      await s3Uploader.deleteByKey(uploadKey).catch(cleanupError => {
+        errorLogger.error('Notice upload cleanup failed', {
+          key: uploadKey,
+          ...errorContext(cleanupError),
+        });
+      });
+    }
+    throw error;
+  }
 };
 
 const getAllNotices = async (query: Record<string, unknown>) => {
@@ -51,22 +65,25 @@ const getAllNotices = async (query: Record<string, unknown>) => {
 };
 
 const deleteNotice = async (id: string): Promise<INotice | null> => {
-  const isExistNotice = await Notice.findById(id);
+  const isExistNotice =
+    await Notice.findByIdAndDelete(id).select('+documentKey');
   if (!isExistNotice) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Notice doesn't exist!");
   }
 
-  try {
-    const lastSegment = isExistNotice.document.split('/').pop();
-    if (lastSegment) {
-      await s3Uploader.deleteByKey(`notices/${lastSegment}`);
-    }
-  } catch (error) {
-    console.error('Error deleting notice from S3:', error);
+  const lastSegment = isExistNotice.document.split('/').pop();
+  const key =
+    isExistNotice.documentKey ||
+    (lastSegment ? `notices/${lastSegment}` : undefined);
+  if (key) {
+    await s3Uploader.deleteByKey(key).catch(error => {
+      errorLogger.error('Notice object deletion failed', {
+        key,
+        ...errorContext(error),
+      });
+    });
   }
-
-  const result = await Notice.findByIdAndDelete(id);
-  return result;
+  return isExistNotice;
 };
 
 export const NoticesService = {

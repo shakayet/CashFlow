@@ -8,23 +8,38 @@ const BRAND_NAME = 'CashFlowIQ';
 const transporter = nodemailer.createTransport({
   host: config.email.host,
   port: Number(config.email.port),
-  secure: false,
+  secure: Number(config.email.port) === 465,
+  requireTLS: Number(config.email.port) !== 465,
   auth: {
     user: config.email.user,
     pass: config.email.pass,
   },
+  tls: {
+    minVersion: 'TLSv1.2',
+    rejectUnauthorized: true,
+  },
 });
 
 const sendEmail = async (values: ISendEmail) => {
+  if (
+    /[\r\n]/.test(values.to) ||
+    /[\r\n]/.test(values.subject) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.to)
+  ) {
+    throw new Error('Email recipient or subject is invalid');
+  }
+
   try {
-    const info = await transporter.sendMail({
+    await transporter.sendMail({
       from: `"${BRAND_NAME}" ${config.email.from}`,
       to: values.to,
       subject: values.subject,
       html: values.html,
+      disableFileAccess: true,
+      disableUrlAccess: true,
     });
 
-    logger.info('Mail send successfully', info.accepted);
+    logger.info('Email delivered to the configured transport');
   } catch (error) {
     errorLogger.error('Email', error);
     throw error;

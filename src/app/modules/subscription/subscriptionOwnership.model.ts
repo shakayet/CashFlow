@@ -1,6 +1,6 @@
 import { model, Schema, Types } from 'mongoose';
 
-type ISubscriptionOwnership = {
+export type ISubscriptionOwnership = {
   originalTransactionId: string;
   user: Types.ObjectId;
 };

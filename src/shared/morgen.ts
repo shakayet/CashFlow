@@ -7,11 +7,13 @@ morgan.token(
   'message',
   (req: Request, res: Response) => res?.locals.errorMessage || '',
 );
+morgan.token('request-id', (req: Request) => req.requestId);
+morgan.token('safe-url', (req: Request) => req.path);
 
 const getIpFormat = () =>
   config.node_env === 'development' ? ':remote-addr - ' : '';
-const successResponseFormat = `${getIpFormat()}:method :url :status - :response-time ms`;
-const errorResponseFormat = `${getIpFormat()}:method :url :status - :response-time ms`;
+const successResponseFormat = `${getIpFormat()}:request-id :method :safe-url :status - :response-time ms`;
+const errorResponseFormat = `${getIpFormat()}:request-id :method :safe-url :status - :response-time ms`;
 
 const successHandler = morgan(successResponseFormat, {
   skip: (req: Request, res: Response) => res.statusCode >= 400,

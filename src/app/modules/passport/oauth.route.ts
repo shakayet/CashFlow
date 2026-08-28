@@ -1,34 +1,41 @@
-import express, { Router } from 'express';
+import express, { NextFunction, Request, Response, Router } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import passport from 'passport';
-import { OAuthController } from './oauth.controller';
+import config from '../../../config';
+import ApiError from '../../../errors/ApiError';
 import auth from '../../middlewares/auth';
-
-/**
- * OAuth Routes
- * Handles OAuth login initiation, callbacks, and profile retrieval
- * Supports multiple providers through a clean, extensible structure
- */
+import validateRequest from '../../middlewares/validateRequest';
+import { OAuthController } from './oauth.controller';
+import { OAuthValidation } from './oauth.validation';
 
 const router: Router = express.Router();
 
-/**
- * Google OAuth Routes
- */
+const requireGoogleOAuth = (
+  _req: Request,
+  _res: Response,
+  next: NextFunction,
+) => {
+  if (!config.oauth.google.enabled) {
+    next(
+      new ApiError(
+        StatusCodes.SERVICE_UNAVAILABLE,
+        'Google OAuth is not enabled',
+      ),
+    );
+    return;
+  }
+  next();
+};
 
-// Initiate Google OAuth login
-// Redirects user to Google login page
 router.get(
   '/google',
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-  }),
+  requireGoogleOAuth,
+  passport.authenticate('google', { scope: ['profile', 'email'] }),
 );
 
-// Google OAuth callback
-// Called by Google after user authorization
-// Generates JWT tokens and redirects to frontend
 router.get(
   '/google/callback',
+  requireGoogleOAuth,
   passport.authenticate('google', {
     failureRedirect: '/api/v1/oauth/login-failed',
     session: false,
@@ -36,31 +43,17 @@ router.get(
   OAuthController.googleCallback,
 );
 
-/**
- * Profile Routes
- */
-
-// Get authenticated user profile
-// Requires valid JWT token
+router.post(
+  '/exchange',
+  validateRequest(OAuthValidation.exchangeCode),
+  OAuthController.exchangeCode,
+);
 router.get('/profile', auth(), OAuthController.getProfile);
-
-/**
- * OAuth Status Route
- */
-
-// Check which OAuth providers are configured
 router.get('/status', OAuthController.getOAuthStatus);
-
-/**
- * Error Handling
- */
-
-// Login failure redirect
-router.get('/login-failed', (req, res) => {
-  res.status(401).json({
+router.get('/login-failed', (_req, res) => {
+  res.status(StatusCodes.UNAUTHORIZED).json({
     success: false,
     message: 'OAuth login failed',
-    error: 'Authentication was not successful',
   });
 });
 

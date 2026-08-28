@@ -7,7 +7,7 @@ const imageMimeTypes = new Set(['image/jpeg', 'image/jpg', 'image/png']);
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB file size limit
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 10, parts: 12 },
   fileFilter: (_req, file, cb) => {
     if (imageMimeTypes.has(file.mimetype)) {
       cb(null, true);
@@ -24,7 +24,7 @@ const upload = multer({
 
 const chatUpload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 10, parts: 12 },
   fileFilter: (_req, file, cb) => {
     if (
       imageMimeTypes.has(file.mimetype) ||

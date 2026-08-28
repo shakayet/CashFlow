@@ -1,4 +1,3 @@
-import colors from 'colors';
 import { Server as HttpServer } from 'http';
 import mongoose from 'mongoose';
 import process from 'process';
@@ -8,7 +7,7 @@ import config from './config';
 import { seedSuperAdmin } from './DB/seedAdmin';
 import { socketHelper } from './helpers/socketHelper';
 import { shutdownOCRWorkers } from './helpers/ocr';
-import { errorLogger, logger } from './shared/logger';
+import { errorContext, errorLogger, logger } from './shared/logger';
 
 let server: HttpServer | undefined;
 let io: Server | undefined;
@@ -17,11 +16,12 @@ let shuttingDown = false;
 const gracefulShutdown = async (signal: string, exitCode = 0) => {
   if (shuttingDown) return;
   shuttingDown = true;
+  app.locals.isShuttingDown = true;
   logger.info(`${signal} received; draining connections`);
   const deadline = setTimeout(() => {
     errorLogger.error('Graceful shutdown timed out');
     process.exit(1);
-  }, 10_000);
+  }, config.http.shutdownTimeoutMs);
   deadline.unref();
 
   try {
@@ -66,8 +66,9 @@ async function main() {
 
   await mongoose.connect(config.database_url, {
     serverSelectionTimeoutMS: databaseTimeout,
+    autoIndex: config.node_env !== 'production',
   });
-  logger.info(colors.green('Database connected successfully'));
+  logger.info('Database connected successfully');
 
   await seedSuperAdmin();
 
@@ -81,14 +82,20 @@ async function main() {
   }
 
   server = app.listen(port, config.ip_address);
+  server.requestTimeout = config.http.requestTimeoutMs;
+  server.headersTimeout = config.http.headersTimeoutMs;
+  server.keepAliveTimeout = config.http.keepAliveTimeoutMs;
+  server.maxHeadersCount = 100;
+  server.maxRequestsPerSocket = 1000;
   await new Promise<void>((resolve, reject) => {
     server!.once('listening', resolve);
     server!.once('error', reject);
   });
-  logger.info(colors.yellow(`Application listening on port:${port}`));
+  logger.info('Application listening', { port });
 
   io = new Server(server, {
     pingTimeout: socketPingTimeout,
+    maxHttpBufferSize: 5 * 1024 * 1024,
     cors: {
       origin: config.cors_origins.includes('*') ? '*' : config.cors_origins,
     },
@@ -98,7 +105,7 @@ async function main() {
 }
 
 main().catch(error => {
-  errorLogger.error(colors.red('Failed to start application'), error);
+  errorLogger.error('Failed to start application', errorContext(error));
   void gracefulShutdown('startupFailure', 1);
 });
 

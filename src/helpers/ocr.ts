@@ -1,6 +1,7 @@
 /* eslint-disable no-undef */
 import { StatusCodes } from 'http-status-codes';
 import Tesseract from 'tesseract.js';
+import config from '../config';
 import ApiError from '../errors/ApiError';
 
 const MAX_CONCURRENT_OCR_JOBS = 2;
@@ -23,7 +24,10 @@ const waitingJobs: Waiter[] = [];
 
 const workerForSlot = (slot: number) => {
   if (!workerPromises[slot]) {
-    workerPromises[slot] = Tesseract.createWorker('eng').catch(error => {
+    workerPromises[slot] = Tesseract.createWorker('eng', undefined, {
+      langPath: config.ocr.languageDataPath,
+      gzip: false,
+    }).catch(error => {
       workerPromises[slot] = undefined;
       throw error;
     });

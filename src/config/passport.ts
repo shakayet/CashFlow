@@ -4,7 +4,7 @@
 import passport from 'passport';
 import { User } from '../app/modules/user/user.model';
 import strategies from './strategies';
-import { errorLogger } from '../shared/logger';
+import { errorLogger, logger } from '../shared/logger';
 
 import { IUser } from '../app/modules/user/user.interface';
 
@@ -44,7 +44,7 @@ export const initializePassport = () => {
 
     try {
       passport.use(strategy);
-      errorLogger.info(
+      logger.info(
         `✓ ${name.charAt(0).toUpperCase() + name.slice(1)} OAuth strategy initialized`,
       );
     } catch (error) {

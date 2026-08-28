@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import jwt, { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
 
 const createToken = (
@@ -6,12 +5,17 @@ const createToken = (
   secret: Secret,
   expireTime: string | number,
 ): string => {
-  const options: SignOptions = { expiresIn: expireTime as any };
+  const options: SignOptions = {
+    algorithm: 'HS256',
+    expiresIn: expireTime as SignOptions['expiresIn'],
+  };
   return jwt.sign(payload, secret as string, options);
 };
 
 const verifyToken = (token: string, secret: Secret): JwtPayload => {
-  return jwt.verify(token, secret as string) as JwtPayload;
+  return jwt.verify(token, secret as string, {
+    algorithms: ['HS256'],
+  }) as JwtPayload;
 };
 
 export const jwtHelper = { createToken, verifyToken };

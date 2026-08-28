@@ -56,7 +56,12 @@ const fileUploadHandler = () => {
   const upload = multer({
     storage: multer.memoryStorage(),
     fileFilter: filterFilter,
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 2,
+      fields: 20,
+      parts: 25,
+    },
   });
   return upload;
 };

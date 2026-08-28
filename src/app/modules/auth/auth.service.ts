@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { StatusCodes } from 'http-status-codes';
 import { JwtPayload, Secret } from 'jsonwebtoken';
 import config from '../../../config';
@@ -17,37 +18,25 @@ import generateOTP from '../../../util/generateOTP';
 import { ResetToken } from '../resetToken/resetToken.model';
 import { User } from '../user/user.model';
 
+const dummyPasswordHash = bcrypt.hash(
+  'cashflow-invalid-login-sentinel',
+  Number(config.bcrypt_salt_rounds),
+);
+
 //login
 const loginUserFromDB = async (payload: ILoginData) => {
   const { email, password } = payload;
   const isExistUser = await User.findOne({ email }).select('+password');
-  if (!isExistUser) {
+  const passwordMatches = await bcrypt.compare(
+    password,
+    isExistUser?.password || (await dummyPasswordHash),
+  );
+  if (!isExistUser || !isExistUser.password || !passwordMatches) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid email or password');
   }
 
-  //check verified and status
-  if (!isExistUser.verified) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Please verify your account, then try to login again',
-    );
-  }
-
-  //check user status
-  if (isExistUser.status === 'block') {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Your account has been blocked. Please contact support for assistance.',
-    );
-  }
-
-  //check match password
-  if (
-    !password ||
-    !isExistUser.password ||
-    !(await User.isMatchPassword(password, isExistUser.password))
-  ) {
-    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid email or password');
+  if (!isExistUser.verified || isExistUser.status === 'block') {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'Account is not active');
   }
 
   //create access token
@@ -71,7 +60,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
 const forgetPasswordToDB = async (email: string) => {
   const isExistUser = await User.isExistUserByEmail(email);
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+    return;
   }
 
   //send mail
@@ -94,27 +83,24 @@ const forgetPasswordToDB = async (email: string) => {
 //verify email
 const verifyEmailToDB = async (payload: IVerifyEmail) => {
   const { email, oneTimeCode } = payload;
-  const isExistUser = await User.findOne({ email }).select('+authentication');
+  const isExistUser = await User.findOneAndUpdate(
+    {
+      email,
+      'authentication.oneTimeCode': oneTimeCode,
+      'authentication.expireAt': { $gt: new Date() },
+    },
+    {
+      $set: {
+        'authentication.oneTimeCode': null,
+        'authentication.expireAt': null,
+      },
+    },
+    { new: false },
+  ).select('+authentication');
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
-  }
-
-  if (!oneTimeCode) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      'Please give the otp, check your email we send a code',
-    );
-  }
-
-  if (isExistUser.authentication?.oneTimeCode !== oneTimeCode) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'You provided wrong otp');
-  }
-
-  const date = new Date();
-  if (date > isExistUser.authentication?.expireAt) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Otp already expired, Please try again',
+      'The verification code is invalid or expired',
     );
   }
 
@@ -124,7 +110,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
   if (!isExistUser.verified) {
     await User.findOneAndUpdate(
       { _id: isExistUser._id },
-      { verified: true, authentication: { oneTimeCode: null, expireAt: null } },
+      { $set: { verified: true } },
     );
     message = 'Email verify successfully';
   } else {
@@ -133,17 +119,16 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
       {
         authentication: {
           isResetPassword: true,
-          oneTimeCode: null,
-          expireAt: null,
         },
       },
     );
 
     //create token ;
     const createToken = cryptoToken();
+    await ResetToken.deleteMany({ user: isExistUser._id });
     await ResetToken.create({
       user: isExistUser._id,
-      token: createToken,
+      token: createHash('sha256').update(createToken).digest('hex'),
       expireAt: new Date(Date.now() + 5 * 60000),
     });
     message =
@@ -159,12 +144,19 @@ const resetPasswordToDB = async (
   payload: IAuthResetPassword,
 ) => {
   const { newPassword, confirmPassword } = payload;
-  //isExist token
   if (!token) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, 'You are not authorized');
   }
-  const isExistToken = await ResetToken.findOne({
-    token,
+
+  if (newPassword !== confirmPassword) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "New password and Confirm password doesn't match!",
+    );
+  }
+
+  const isExistToken = await ResetToken.findOneAndDelete({
+    token: createHash('sha256').update(token).digest('hex'),
     expireAt: { $gt: new Date() },
   });
   if (!isExistToken) {
@@ -179,14 +171,6 @@ const resetPasswordToDB = async (
     throw new ApiError(
       StatusCodes.UNAUTHORIZED,
       "You don't have permission to change the password. Please click again to 'Forgot Password'",
-    );
-  }
-
-  //check password
-  if (newPassword !== confirmPassword) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "New password and Confirm password doesn't match!",
     );
   }
 
@@ -308,7 +292,7 @@ const refreshToken = async (token: string) => {
 const resendOtpToDB = async (email: string) => {
   const isExistUser = await User.findOne({ email });
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+    return { message: 'If the account exists, a code has been sent' };
   }
 
   // If user already verified, no need to resend

@@ -2,9 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable no-undef */
-import colors from 'colors';
 import { Server, Socket } from 'socket.io';
-import { logger } from '../shared/logger';
+import { errorContext, errorLogger, logger } from '../shared/logger';
 import jwt from 'jsonwebtoken';
 import config from '../config';
 import { ChatRoom } from '../app/modules/chat/chatRoom.model';
@@ -12,6 +11,7 @@ import { ChatRoom } from '../app/modules/chat/chatRoom.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { ChatService } from '../app/modules/chat/chat.service';
 import { User } from '../app/modules/user/user.model';
+import ApiError from '../errors/ApiError';
 
 const socket = (io: Server) => {
   io.use(async (socket: Socket, next) => {
@@ -25,10 +25,9 @@ const socket = (io: Server) => {
       return next(new Error('Authentication error: Token not provided'));
     }
     try {
-      const decoded = jwt.verify(
-        token,
-        config.jwt.jwt_secret as string,
-      ) as JwtPayload;
+      const decoded = jwt.verify(token, config.jwt.jwt_secret as string, {
+        algorithms: ['HS256'],
+      }) as JwtPayload;
       const currentUser = await User.findById(decoded.id).select(
         'role email status verified',
       );
@@ -52,11 +51,30 @@ const socket = (io: Server) => {
   });
 
   io.on('connection', socket => {
-    logger.info(colors.blue(`User connected: ${socket.data.user.id}`));
+    logger.info('Socket user connected', { userId: socket.data.user.id });
+    let eventWindowStartedAt = Date.now();
+    let eventCount = 0;
+    const acceptsEvent = () => {
+      const now = Date.now();
+      if (now - eventWindowStartedAt >= config.socket.eventRateLimitWindowMs) {
+        eventWindowStartedAt = now;
+        eventCount = 0;
+      }
+      eventCount += 1;
+      if (eventCount > config.socket.eventRateLimitMax) {
+        socket.emit(
+          'rateLimitError',
+          'Too many socket events. Try again later.',
+        );
+        return false;
+      }
+      return true;
+    };
     // Join a personal room for user-specific events
     socket.join(socket.data.user.id);
 
     socket.on('joinRoom', async (payload: any) => {
+      if (!acceptsEvent()) return;
       try {
         const user = socket.data.user;
         let parsedPayload = payload;
@@ -88,15 +106,19 @@ const socket = (io: Server) => {
         }
 
         socket.join(chatRoomId);
-        logger.info(colors.green(`User ${user.id} joined room ${chatRoomId}`));
+        logger.info('Socket user joined chat room', {
+          userId: user.id,
+          chatRoomId,
+        });
         socket.emit('joinedRoom', chatRoomId);
       } catch (error: any) {
-        logger.error(colors.red(`Error joining room: ${error.message}`));
+        errorLogger.error('Socket room join failed', errorContext(error));
         socket.emit('roomError', 'Internal server error while joining room.');
       }
     });
 
     socket.on('sendMessage', async (messagePayload: any) => {
+      if (!acceptsEvent()) return;
       const user = socket.data.user;
       try {
         const parsedPayload =
@@ -151,12 +173,16 @@ const socket = (io: Server) => {
           file: fileForService,
         });
       } catch (error: any) {
-        logger.error(colors.red(`Error sending message: ${error.message}`));
-        socket.emit('messageError', error.message);
+        errorLogger.error('Socket message failed', errorContext(error));
+        socket.emit(
+          'messageError',
+          error instanceof ApiError ? error.message : 'Unable to send message',
+        );
       }
     });
 
     socket.on('markMessagesAsRead', async (payload: any) => {
+      if (!acceptsEvent()) return;
       try {
         const user = socket.data.user;
         let parsedPayload = payload;
@@ -180,16 +206,19 @@ const socket = (io: Server) => {
         // Event emission is now handled by ChatService.markMessagesAsRead
         await ChatService.markMessagesAsRead(user, chatRoomId);
       } catch (error: any) {
-        logger.error(
-          colors.red(`Error marking messages as read: ${error.message}`),
+        errorLogger.error('Socket read update failed', errorContext(error));
+        socket.emit(
+          'readError',
+          error instanceof ApiError
+            ? error.message
+            : 'Unable to update message status',
         );
-        socket.emit('readError', error.message);
       }
     });
 
     //disconnect
     socket.on('disconnect', () => {
-      logger.info(colors.red(`User disconnected: ${socket.data.user.id}`));
+      logger.info('Socket user disconnected', { userId: socket.data.user.id });
     });
   });
 };

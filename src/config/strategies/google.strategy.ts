@@ -13,7 +13,7 @@ import { User } from '../../app/modules/user/user.model';
 let googleStrategy: GoogleStrategy | null = null;
 
 // Only initialize strategy if credentials are provided
-if (config.oauth.google.clientID && config.oauth.google.clientSecret) {
+if (config.oauth.google.enabled) {
   googleStrategy = new GoogleStrategy(
     {
       clientID: config.oauth.google.clientID,

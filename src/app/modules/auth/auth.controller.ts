@@ -28,6 +28,7 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
     message: 'User logged in successfully.',
     data: {
       accessToken: result.accessToken,
+      createToken: result.accessToken,
       refreshToken: result.refreshToken,
     },
   });
@@ -46,16 +47,10 @@ const forgetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const resendOtp = async (req: Request, res: Response) => {
-  try {
-    const result = await AuthService.resendOtpToDB(req.body.email);
-    res.status(200).json({ success: true, message: result.message });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'An error occurred';
-    res.status(400).json({ success: false, message });
-  }
-};
+const resendOtp = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthService.resendOtpToDB(req.body.email);
+  res.status(StatusCodes.OK).json({ success: true, message: result.message });
+});
 
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
   const token = req.headers.authorization;
@@ -95,7 +90,7 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
     success: true,
     message: 'Token refreshed successfully.',
     data: {
-      createToken: result.accessToken,
+      accessToken: result.accessToken,
       refreshToken: result.refreshToken,
     },
   });

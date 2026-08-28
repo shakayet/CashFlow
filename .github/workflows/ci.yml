@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      IP_ADDRESS: 127.0.0.1
+      PORT: 5000
+      DATABASE_URL: mongodb://127.0.0.1:27017/cashflow_test
+      DATABASE_SERVER_SELECTION_TIMEOUT_MS: 10000
+      CORS_ORIGINS: http://localhost:3000
+      BCRYPT_SALT_ROUNDS: 10
+      JWT_SECRET: test-access-secret
+      JWT_EXPIRE_IN: 15m
+      JWT_REFRESH_SECRET: test-refresh-secret
+      JWT_REFRESH_EXPIRE_IN: 30d
+      EMAIL_FROM: test@example.com
+      EMAIL_USER: test@example.com
+      EMAIL_PASS: test-password
+      EMAIL_PORT: 587
+      EMAIL_HOST: smtp.example.com
+      AWS_BUCKET: cashflow-test
+      AWS_REGION: us-east-1
+      SUPER_ADMIN_EMAIL: admin@example.com
+      SUPER_ADMIN_PASSWORD: test-password
+      GOOGLE_OAUTH_ENABLED: 'false'
+      APPLE_SUBSCRIPTIONS_ENABLED: 'false'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - run: npm audit --omit=dev --audit-level=high
