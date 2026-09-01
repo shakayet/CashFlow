@@ -6,10 +6,11 @@ verified with Apple's official server library before database state changes.
 
 ## Configuration
 
-Set the `APPLE_*` variables documented in `.env.example`. Download the In-App
-Purchase private key from App Store Connect and the Apple root certificates
-from Apple PKI. `APPLE_PRODUCT_MAP` is the allowlist that maps App Store product
-IDs to this application's existing plans and billing cycles.
+Set the required `APPLE_*` variables through the deployment environment.
+Download the In-App Purchase private key from App Store Connect and the Apple
+root certificates from Apple PKI. `APPLE_PRODUCT_MAP` is the allowlist that
+maps App Store product IDs to this application's existing plans and billing
+cycles.
 
 The public Apple root certificates used by `SignedDataVerifier` are stored in
 `certs/apple`. Development uses the Sandbox API directly. Production tries the

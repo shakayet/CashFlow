@@ -8,11 +8,10 @@ Requires Node.js 20–24 and MongoDB.
 
 ```bash
 npm ci
-copy .env.example .env
 npm run dev
 ```
 
-Fill every required value in `.env`. Optional Google OAuth and Apple subscriptions remain unavailable until their feature flags and credentials are configured.
+Create a local `.env` with the required runtime values. Optional Google OAuth and Apple subscriptions remain unavailable until their feature flags and credentials are configured.
 
 ## Quality gates
 
@@ -37,7 +36,7 @@ npm start
 
 The database preflight is mandatory before the first deployment of a release. It is idempotent and should run as a single deployment job, not from every replica.
 
-Container builds are supported with the included `Dockerfile`. See [Production operations](docs/PRODUCTION.md) for environment, deployment, health-check, OAuth migration, monitoring, and rollback details.
+Container builds are supported with the included `Dockerfile`. Supply production configuration through the deployment platform's secret manager and run the database preflight once before rolling out application replicas.
 
 Health endpoints:
 

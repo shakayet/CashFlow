@@ -2,7 +2,6 @@
 .github
 .env
 .env.*
-!.env.example
 .npm-install-cache
 coverage
 dist
@@ -13,4 +12,3 @@ winston
 *.log
 Dockerfile*
 README.md
-docs
