@@ -50,6 +50,11 @@ const assertNoOwnershipConflicts = async () => {
     _id: string;
   }>([
     {
+      $match: {
+        originalTransactionId: { $type: 'string', $ne: '' },
+      },
+    },
+    {
       $group: {
         _id: '$originalTransactionId',
         users: { $addToSet: '$user' },
@@ -108,6 +113,11 @@ const backfillSubscriptionOwnership = async () => {
     _id: string;
     user: Types.ObjectId;
   }>([
+    {
+      $match: {
+        originalTransactionId: { $type: 'string', $ne: '' },
+      },
+    },
     { $sort: { createdAt: 1 } },
     {
       $group: {
