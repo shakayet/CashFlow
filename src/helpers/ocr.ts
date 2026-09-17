@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import Tesseract from 'tesseract.js';
 import config from '../config';
 import ApiError from '../errors/ApiError';
+import { normalizeImageForOCR } from './ocrImage';
 
 const MAX_CONCURRENT_OCR_JOBS = 2;
 const MAX_QUEUED_OCR_JOBS = 20;
@@ -58,19 +59,28 @@ const releaseSlot = (slot: number) => {
   availableSlots.push(slot);
 };
 
-export const recognizeImageText = async (input: Buffer | string) => {
+export const recognizeImageText = async (
+  input: Buffer | string,
+  mimeType?: string,
+) => {
   const slot = await acquireSlot();
   try {
-    const worker = await workerForSlot(slot);
-    const {
-      data: { text },
-    } = await worker.recognize(input);
-    return text;
-  } catch (error) {
-    const worker = await workerPromises[slot]?.catch(() => undefined);
-    await worker?.terminate().catch(() => undefined);
-    workerPromises[slot] = undefined;
-    throw error;
+    const normalizedInput = Buffer.isBuffer(input)
+      ? await normalizeImageForOCR(input, mimeType)
+      : input;
+
+    try {
+      const worker = await workerForSlot(slot);
+      const {
+        data: { text },
+      } = await worker.recognize(normalizedInput);
+      return text;
+    } catch (error) {
+      const worker = await workerPromises[slot]?.catch(() => undefined);
+      await worker?.terminate().catch(() => undefined);
+      workerPromises[slot] = undefined;
+      throw error;
+    }
   } finally {
     releaseSlot(slot);
   }

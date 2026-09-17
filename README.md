@@ -38,6 +38,11 @@ The database preflight is mandatory before the first deployment of a release. It
 
 Container builds are supported with the included `Dockerfile`. Supply production configuration through the deployment platform's secret manager and run the database preflight once before rolling out application replicas.
 
+Notice downloads use private S3 objects and response-time presigned URLs. The
+runtime AWS identity must allow `s3:GetObject` for the `notices/*` prefix.
+`S3_PRESIGNED_URL_EXPIRES_IN` is optional, defaults to 900 seconds, and may be
+set to at most 604800 seconds.
+
 Health endpoints:
 
 - `GET /health/live`

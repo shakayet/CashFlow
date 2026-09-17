@@ -15,6 +15,7 @@ const createNotice = catchAsync(async (req: Request, res: Response) => {
     (undefined as unknown as Express.Multer.File);
   const result = await NoticesService.createNotice(noticeData, file);
 
+  res.set('Cache-Control', 'private, no-store');
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -25,6 +26,7 @@ const createNotice = catchAsync(async (req: Request, res: Response) => {
 
 const getAllNotices = catchAsync(async (req: Request, res: Response) => {
   const { result, pagination } = await NoticesService.getAllNotices(req.query);
+  res.set('Cache-Control', 'private, no-store');
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

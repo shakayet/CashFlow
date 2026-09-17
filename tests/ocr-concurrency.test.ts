@@ -4,7 +4,12 @@ jest.mock('tesseract.js', () => ({
   default: { createWorker: jest.fn() },
 }));
 
+jest.mock('../src/helpers/ocrImage', () => ({
+  normalizeImageForOCR: jest.fn(async (input: Buffer) => input),
+}));
+
 import Tesseract from 'tesseract.js';
+import { normalizeImageForOCR } from '../src/helpers/ocrImage';
 import {
   OCR_CONCURRENCY_LIMIT,
   recognizeImageText,
@@ -100,6 +105,39 @@ describe('OCR concurrency limit', () => {
 
     workers.forEach(worker => {
       expect(worker.terminate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('does not discard a healthy worker when image normalization fails', async () => {
+    const workers = Array.from({ length: OCR_CONCURRENCY_LIMIT }, () => ({
+      recognize: jest.fn().mockResolvedValue({ data: { text: 'receipt' } }),
+      terminate: jest.fn().mockResolvedValue(undefined),
+    }));
+    let nextWorker = 0;
+    (Tesseract.createWorker as jest.Mock).mockImplementation(async () => {
+      const worker = workers[nextWorker];
+      nextWorker += 1;
+      return worker;
+    });
+    (normalizeImageForOCR as jest.Mock).mockImplementation(
+      async (input: Buffer) => input,
+    );
+
+    await Promise.all([
+      recognizeImageText(Buffer.from('first')),
+      recognizeImageText(Buffer.from('second')),
+    ]);
+
+    (normalizeImageForOCR as jest.Mock).mockRejectedValueOnce(
+      new Error('invalid image'),
+    );
+    await expect(recognizeImageText(Buffer.from('invalid'))).rejects.toThrow(
+      'invalid image',
+    );
+
+    expect(Tesseract.createWorker).toHaveBeenCalledTimes(OCR_CONCURRENCY_LIMIT);
+    workers.forEach(worker => {
+      expect(worker.terminate).not.toHaveBeenCalled();
     });
   });
 });

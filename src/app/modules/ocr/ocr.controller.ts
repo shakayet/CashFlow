@@ -10,7 +10,7 @@ const analyzeReceipt = catchAsync(async (req: Request, res: Response) => {
 
   let result;
   if (file) {
-    result = await OCRService.analyzeReceipt(file.buffer);
+    result = await OCRService.analyzeReceipt(file.buffer, file.mimetype);
   } else if (text) {
     result = await OCRService.analyzeReceipt(text);
   } else {

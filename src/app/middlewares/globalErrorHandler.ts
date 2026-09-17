@@ -1,5 +1,6 @@
 import { ErrorRequestHandler } from 'express';
 import { StatusCodes } from 'http-status-codes';
+import multer from 'multer';
 import config from '../../config';
 import ApiError from '../../errors/ApiError';
 import handleValidationError from '../../errors/handleValidationError';
@@ -39,6 +40,16 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, _next) => {
           },
         ]
       : [];
+  } else if (error instanceof multer.MulterError) {
+    statusCode =
+      error.code === 'LIMIT_FILE_SIZE'
+        ? StatusCodes.REQUEST_TOO_LONG
+        : StatusCodes.BAD_REQUEST;
+    message =
+      error.code === 'LIMIT_FILE_SIZE'
+        ? 'File size must not exceed 5 MB'
+        : error.message;
+    errorMessages = [{ path: error.field || '', message }];
   } else if (error instanceof ApiError) {
     statusCode = error.statusCode;
     message = error.message;

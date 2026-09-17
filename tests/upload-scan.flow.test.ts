@@ -40,7 +40,7 @@ jest.mock('../src/app/modules/expense/expense.service', () => ({
   },
 }));
 
-import { chatUpload, upload } from '../src/helpers/multer';
+import { chatUpload, ocrUpload, upload } from '../src/helpers/multer';
 import { recognizeImageText } from '../src/helpers/ocr';
 import { s3Uploader } from '../src/helpers/s3Uploader';
 import { ExpenseController } from '../src/app/modules/expense/expense.controller';
@@ -51,6 +51,7 @@ import { IncomeService } from '../src/app/modules/income/income.service';
 import { OCRService } from '../src/app/modules/ocr/ocr.service';
 import { ScanService } from '../src/app/modules/scan/scan.service';
 import { ScanValidation } from '../src/app/modules/scan/scan.validation';
+import globalErrorHandler from '../src/app/middlewares/globalErrorHandler';
 
 const fileBuffer = Buffer.from('receipt');
 const imageFile = {
@@ -232,6 +233,7 @@ describe('upload MIME policies', () => {
     app.post('/upload', middleware, (req, res) => {
       res.status(200).json({ mimetype: req.file?.mimetype });
     });
+    app.use(globalErrorHandler);
     return app;
   };
 
@@ -251,5 +253,39 @@ describe('upload MIME policies', () => {
         contentType: 'application/pdf',
       })
       .expect(400);
+  });
+
+  it.each([
+    ['receipt.webp', 'image/webp'],
+    ['receipt.heic', 'image/heic'],
+    ['receipt.heif', 'application/octet-stream'],
+    ['receipt.tiff', 'image/tiff'],
+    ['receipt.tif', 'image/x-tiff'],
+    ['receipt.avif', 'image/avif'],
+  ])(
+    'accepts %s for OCR without widening scan uploads',
+    async (filename, contentType) => {
+      await request(makeApp(ocrUpload.single('file')))
+        .post('/upload')
+        .attach('file', Buffer.from('image'), { filename, contentType })
+        .expect(200, { mimetype: contentType });
+
+      await request(makeApp(upload.single('file')))
+        .post('/upload')
+        .attach('file', Buffer.from('image'), { filename, contentType })
+        .expect(400);
+    },
+  );
+
+  it('returns 413 when an OCR image exceeds the upload limit', async () => {
+    const response = await request(makeApp(ocrUpload.single('file')))
+      .post('/upload')
+      .attach('file', Buffer.alloc(5 * 1024 * 1024 + 1), {
+        filename: 'large.webp',
+        contentType: 'image/webp',
+      })
+      .expect(413);
+
+    expect(response.body.message).toBe('File size must not exceed 5 MB');
   });
 });

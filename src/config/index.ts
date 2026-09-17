@@ -227,6 +227,12 @@ if (cloudfrontDomain) {
   }
 }
 
+const s3PresignedUrlExpiresIn = parsePositiveInteger(
+  'S3_PRESIGNED_URL_EXPIRES_IN',
+  15 * 60,
+  7 * 24 * 60 * 60,
+);
+
 const config = {
   ip_address: requiredEnv('IP_ADDRESS'),
   database_url: databaseUrl,
@@ -283,6 +289,7 @@ const config = {
     s3: {
       bucket: requiredEnv('AWS_BUCKET'),
       region: requiredEnv('AWS_REGION'),
+      presignedUrlExpiresIn: s3PresignedUrlExpiresIn,
     },
     cloudfrontDomain,
   },

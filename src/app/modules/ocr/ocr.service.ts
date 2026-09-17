@@ -9,13 +9,14 @@ import {
 
 const analyzeReceipt = async (
   input: string | Buffer,
+  mimeType?: string,
 ): Promise<IOCRResponse> => {
   let rawText = '';
 
   if (typeof input === 'string') {
     rawText = input;
   } else {
-    rawText = await recognizeImageText(input);
+    rawText = await recognizeImageText(input, mimeType);
   }
 
   const amount = extractAmount(rawText);

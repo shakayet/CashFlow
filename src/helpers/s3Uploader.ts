@@ -2,7 +2,9 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import config from '../config';
 
@@ -67,8 +69,25 @@ const uploadBufferToS3 = async (
   return { key, url: getPublicUrl(key) };
 };
 
+const getSignedDownloadUrl = async (key: string) => {
+  const objectKey = key.trim().replace(/^\/+/, '');
+  if (!objectKey || objectKey.includes('\0')) {
+    throw new Error('S3 object key is invalid');
+  }
+
+  const command = new GetObjectCommand({
+    Bucket: config.storage.s3.bucket,
+    Key: objectKey,
+  });
+
+  return getSignedUrl(s3, command, {
+    expiresIn: config.storage.s3.presignedUrlExpiresIn,
+  });
+};
+
 export const s3Uploader = {
   uploadBufferToS3,
+  getSignedDownloadUrl,
   async deleteByKey(key: string) {
     const bucket = config.storage.s3.bucket;
     const command = new DeleteObjectCommand({
